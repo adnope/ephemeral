@@ -2,7 +2,19 @@
 
 Ephemeral is a lightweight self-hosted web app for quickly sharing text messages and files across devices.
 
-Features:
+## Table of Contents
+
+- [Ephemeral](#ephemeral)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Requirements (Development Only)](#requirements-development-only)
+- [Configuration](#configuration)
+- [Docker Deployment](#docker-deployment)
+- [Development](#development)
+  - [Build and Run Locally](#build-and-run-locally)
+  - [Format and Lint](#format-and-lint)
+
+## Features:
 
 - Chat-style feed
 - Image and video media viewer with thumbnail preview
