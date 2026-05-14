@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -136,6 +137,22 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "storage error", http.StatusInternalServerError)
 		return
 	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := h.bodyIndex.IndexUploadedFile(
+			ctx,
+			id,
+			finalName,
+			originalName,
+			written,
+			store.Metadata{MIME: mime},
+		); err != nil {
+			h.log.Warn("upload: body index failed", "item_id", id, "err", err)
+		}
+	}()
 
 	h.broker.Broadcast(sse.Event{Type: "item:new", ID: id})
 

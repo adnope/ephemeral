@@ -9,12 +9,16 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/adnope/ephemeral/internal/bodyindex"
 	"github.com/adnope/ephemeral/internal/config"
 	"github.com/adnope/ephemeral/internal/handler"
 	"github.com/adnope/ephemeral/internal/media"
@@ -35,7 +39,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	migrationSQL, err := os.ReadFile("migrations/001_initial.sql")
+	migrationSQL, err := loadMigrations("migrations")
 	if err != nil {
 		logger.Error("migration read failed", "err", err)
 		os.Exit(1)
@@ -56,13 +60,25 @@ func main() {
 
 	mediaPool := media.NewPool(itemRepo, broker)
 
+	bodyIndexer := bodyindex.New(db, cfg.DataDir, logger)
+
 	tmpl, err := parseTemplates()
 	if err != nil {
 		logger.Error("template parse failed", "err", err)
 		os.Exit(1)
 	}
 
-	h := handler.NewHandler(itemRepo, sessionRepo, userRepo, broker, mediaPool, tmpl, cfg.DataDir, logger)
+	h := handler.NewHandler(
+		itemRepo,
+		sessionRepo,
+		userRepo,
+		broker,
+		mediaPool,
+		bodyIndexer,
+		tmpl,
+		cfg.DataDir,
+		logger,
+	)
 
 	r := chi.NewRouter()
 
@@ -134,6 +150,43 @@ func main() {
 	mediaPool.Shutdown(ctx)
 
 	logger.Info("shutdown complete")
+}
+
+func loadMigrations(dir string) (string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("read migrations dir: %w", err)
+	}
+
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.HasSuffix(entry.Name(), ".sql") {
+			names = append(names, entry.Name())
+		}
+	}
+
+	sort.Strings(names)
+
+	var b strings.Builder
+	for _, name := range names {
+		path := filepath.Join(dir, name)
+
+		sqlBytes, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("read migration %s: %w", name, err)
+		}
+
+		b.WriteString("\n-- migration: ")
+		b.WriteString(name)
+		b.WriteString("\n")
+		b.Write(sqlBytes)
+		b.WriteString("\n")
+	}
+
+	return b.String(), nil
 }
 
 func parseTemplates() (*template.Template, error) {
