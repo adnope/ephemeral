@@ -43,48 +43,7 @@
     Next &rarr;
   </button>
 </div>
-{{end}} {{define "video_thumb_or_placeholder"}} {{if .Metadata.Thumb}}
-<div
-  class="video-thumb-card"
-  data-video-url="{{fileURL .Content}}"
-  data-video-mime="{{.Metadata.MIME}}"
-  data-video-name="{{.Filename}}"
-  data-video-size="{{formatSize .Filesize}}"
-  data-video-date='{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}'
-  data-video-resolution="{{if and .Metadata.Width .Metadata.Height}}{{.Metadata.Width}} × {{.Metadata.Height}}{{end}}"
-  @click="openVideoPlayer($el)"
-  @keydown.enter.prevent="openVideoPlayer($el)"
-  @keydown.space.prevent="openVideoPlayer($el)"
-  role="button"
-  tabindex="0"
->
-  <img
-    src="{{fileURL .Metadata.Thumb}}"
-    alt="{{.Filename}}"
-    class="video-thumb-img"
-    loading="lazy"
-  />
-  <span class="video-play-overlay">&#9654;</span>
-</div>
-{{else}}
-<div
-  class="video-placeholder-card"
-  data-video-url="{{fileURL .Content}}"
-  data-video-mime="{{.Metadata.MIME}}"
-  data-video-name="{{.Filename}}"
-  data-video-size="{{formatSize .Filesize}}"
-  data-video-date='{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}'
-  data-video-resolution="{{if and .Metadata.Width .Metadata.Height}}{{.Metadata.Width}} × {{.Metadata.Height}}{{end}}"
-  @click="openVideoPlayer($el)"
-  @keydown.enter.prevent="openVideoPlayer($el)"
-  @keydown.space.prevent="openVideoPlayer($el)"
-  role="button"
-  tabindex="0"
->
-  <span class="video-placeholder-play">&#9654;</span>
-  <span>Video</span>
-</div>
-{{end}} {{end}} {{define "media_dialog_meta"}}
+{{end}} {{define "media_dialog_meta"}}
 <div class="media-dialog-meta">
   <span>{{formatSize .Filesize}}</span>
 

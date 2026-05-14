@@ -1,7 +1,60 @@
 {{define "item_video"}}
 <div>
+  <dialog
+    x-ref="vidDialog_{{.ID}}"
+    class="media-dialog"
+    data-media-nav-mode="chat"
+    tabindex="-1"
+    @keydown.window="handleMediaDialogKeydown($event, $el)"
+  >
+    {{template "media_dialog_actions" .}} {{template "media_dialog_nav_chat" .}}
+    {{template "media_dialog_meta" .}}
+
+    <div class="media-dialog-body">
+      <video
+        controls
+        preload="none"
+        {{if
+        .Metadata.Thumb}}poster="{{fileURL .Metadata.Thumb}}"
+        {{end}}
+        class="media-dialog-video"
+      >
+        <source src="{{fileURL .Content}}" type="{{.Metadata.MIME}}" />
+      </video>
+    </div>
+  </dialog>
+
   <div class="bubble-video-frame">
-    {{template "video_thumb_or_placeholder" .}}
+    {{if .Metadata.Thumb}}
+    <div
+      class="video-thumb-card"
+      @click="openMediaDialog($refs.vidDialog_{{.ID}})"
+      @keydown.enter.prevent="openMediaDialog($refs.vidDialog_{{.ID}})"
+      @keydown.space.prevent="openMediaDialog($refs.vidDialog_{{.ID}})"
+      role="button"
+      tabindex="0"
+    >
+      <img
+        src="{{fileURL .Metadata.Thumb}}"
+        alt="{{.Filename}}"
+        class="video-thumb-img"
+        loading="lazy"
+      />
+      <span class="video-play-overlay">&#9654;</span>
+    </div>
+    {{else}}
+    <div
+      class="video-placeholder-card"
+      @click="openMediaDialog($refs.vidDialog_{{.ID}})"
+      @keydown.enter.prevent="openMediaDialog($refs.vidDialog_{{.ID}})"
+      @keydown.space.prevent="openMediaDialog($refs.vidDialog_{{.ID}})"
+      role="button"
+      tabindex="0"
+    >
+      <span class="video-placeholder-play">&#9654;</span>
+      <span>Video</span>
+    </div>
+    {{end}}
   </div>
 
   <div class="bubble-file-meta">

@@ -211,40 +211,6 @@
     </div>
 
     {{template "text_viewer_dialog" .}} {{template "text_viewer_scripts" .}}
-    <dialog x-ref="videoPlayerDialog" class="media-dialog" tabindex="-1">
-      <div class="media-dialog-actions">
-        <a :href="activeVideoUrl" :download="activeVideoName" class="btn">
-          Download
-        </a>
-        <button type="button" @click="closeVideoPlayer" class="btn">
-          Close
-        </button>
-      </div>
-
-      <div class="media-dialog-title" x-text="activeVideoName"></div>
-
-      <div class="media-dialog-meta">
-        <span x-text="activeVideoSize"></span>
-
-        <template x-if="activeVideoResolution">
-          <span>·</span>
-        </template>
-        <template x-if="activeVideoResolution">
-          <span x-text="activeVideoResolution"></span>
-        </template>
-
-        <span>·</span>
-        <span x-text="activeVideoDate"></span>
-      </div>
-
-      <video
-        x-ref="videoPlayer"
-        controls
-        preload="none"
-        class="media-dialog-video"
-      ></video>
-    </dialog>
-
     {{template "media_scripts" .}}
 
     <script>
@@ -252,12 +218,6 @@
         return {
           dragover: false,
           message: "",
-          activeVideoUrl: "",
-          activeVideoName: "",
-          activeVideoMime: "",
-          activeVideoSize: "",
-          activeVideoDate: "",
-          activeVideoResolution: "",
 
           uploads: [],
           uploadSeq: 0,
@@ -679,55 +639,6 @@
               hour: "numeric",
               minute: "2-digit",
             });
-          },
-
-          openVideoPlayer(el) {
-            if (!(el instanceof HTMLElement)) return;
-
-            this.activeVideoUrl = el.dataset.videoUrl || "";
-            this.activeVideoMime = el.dataset.videoMime || "video/mp4";
-            this.activeVideoName = el.dataset.videoName || "video";
-            this.activeVideoSize = el.dataset.videoSize || "";
-            this.activeVideoDate = el.dataset.videoDate || "";
-            this.activeVideoResolution = el.dataset.videoResolution || "";
-
-            if (!this.activeVideoUrl) return;
-
-            this.$nextTick(() => {
-              const video = this.$refs.videoPlayer;
-              const dialog = this.$refs.videoPlayerDialog;
-
-              if (!(video instanceof HTMLVideoElement)) return;
-              if (!(dialog instanceof HTMLDialogElement)) return;
-
-              video.pause();
-              video.removeAttribute("src");
-              video.innerHTML = "";
-
-              const source = document.createElement("source");
-              source.src = this.activeVideoUrl;
-              source.type = this.activeVideoMime;
-              video.appendChild(source);
-
-              video.load();
-              dialog.showModal();
-            });
-          },
-
-          closeVideoPlayer() {
-            const video = this.$refs.videoPlayer;
-            const dialog = this.$refs.videoPlayerDialog;
-
-            if (video instanceof HTMLVideoElement) {
-              video.pause();
-              video.removeAttribute("src");
-              video.innerHTML = "";
-              video.load();
-            }
-
-            if (dialog instanceof HTMLDialogElement && dialog.open) {
-              dialog.close();
-            }
           },
 
           closeUploadQueue() {
