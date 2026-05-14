@@ -4,9 +4,9 @@ import (
 	"html/template"
 	"log/slog"
 
-	"github.com/adnope/leandrop/internal/media"
-	"github.com/adnope/leandrop/internal/sse"
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/media"
+	"github.com/adnope/ephemeral/internal/sse"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 // Handler is the single dependency container passed to all route handlers.

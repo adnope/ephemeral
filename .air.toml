@@ -1,0 +1,20 @@
+root = "."
+tmp_dir = "bin"
+
+[build]
+cmd = "go build -trimpath -o ./bin/ephemeral ./cmd/ephemeral"
+entrypoint = "./bin/ephemeral"
+delay = 300
+stop_on_error = true
+send_interrupt = true
+kill_delay = "500ms"
+include_ext = ["go", "html", "css", "js", "json"]
+exclude_dir = ["bin", "data", "node_modules", ".git"]
+exclude_file = ["web/static/app.min.js"]
+include_dir = ["cmd", "internal", "web", "migrations"]
+
+[log]
+time = true
+
+[misc]
+clean_on_exit = true

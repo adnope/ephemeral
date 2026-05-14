@@ -72,7 +72,7 @@ func SniffMIME(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	buf := sniffPool.Get().(*[512]byte)
 	defer sniffPool.Put(buf)

@@ -6,14 +6,12 @@ import (
 	"strconv"
 )
 
-// Config holds all application configuration loaded from environment variables.
 type Config struct {
 	Port          int
 	DataDir       string
 	SessionSecret string
 }
 
-// Load reads configuration from environment variables with sensible defaults.
 func Load() (*Config, error) {
 	cfg := &Config{
 		Port:          8080,
@@ -36,10 +34,9 @@ func Load() (*Config, error) {
 	if v := os.Getenv("SESSION_SECRET"); v != "" {
 		cfg.SessionSecret = v
 	} else {
-		cfg.SessionSecret = "leandrop-default-secret-change-me"
+		cfg.SessionSecret = "default-secret"
 	}
 
-	// Ensure data directories exist
 	dirs := []string{
 		cfg.DataDir,
 		cfg.DataDir + "/uploads",
@@ -54,12 +51,10 @@ func Load() (*Config, error) {
 	return cfg, nil
 }
 
-// DBPath returns the full path to the SQLite database file.
 func (c *Config) DBPath() string {
-	return c.DataDir + "/leandrop.db"
+	return c.DataDir + "/ephemeral.db"
 }
 
-// UploadDir returns the path to the uploads directory.
 func (c *Config) UploadDir() string {
 	return c.DataDir + "/uploads"
 }

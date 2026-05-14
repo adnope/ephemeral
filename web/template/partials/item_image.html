@@ -1,30 +1,32 @@
 {{define "item_image"}}
-<div class="image-content" x-data="{ open: false }">
-    <img src="/files/{{.Content}}"
-         alt="{{.Filename}}"
-         class="bubble-image"
-         loading="lazy"
-         @click="open = true"
-         {{if .Metadata.Width}}width="{{.Metadata.Width}}"{{end}}
-         {{if .Metadata.Height}}height="{{.Metadata.Height}}"{{end}}>
+<div>
+  <dialog
+    x-ref="imgDialog_{{.ID}}"
+    class="media-dialog"
+    tabindex="-1"
+    @keydown.window="handleMediaDialogKeydown($event, $el)"
+  >
+    {{template "media_dialog_actions" .}} {{template "media_dialog_nav_chat" .}}
 
-    <!-- Full-res dialog -->
-    <dialog class="image-dialog" x-ref="dialog"
-            x-show="open"
-            @click.self="open = false"
-            x-effect="open ? $refs.dialog.showModal() : $refs.dialog.close()">
-        <div class="dialog-content">
-            <img src="/files/{{.Content}}" alt="{{.Filename}}" class="dialog-image">
-            <button class="dialog-close" @click="open = false">&times;</button>
-            {{if .Filename}}
-            <div class="dialog-info">
-                <span class="dialog-filename">{{.Filename}}</span>
-                {{if .Metadata.Width}}
-                <span class="dialog-dimensions">{{.Metadata.Width}} x {{.Metadata.Height}}</span>
-                {{end}}
-            </div>
-            {{end}}
-        </div>
-    </dialog>
+    <img
+      src="{{fileURL .Content}}"
+      alt="{{.Filename}}"
+      class="media-dialog-img"
+      onload="fitMediaElement(this)"
+    />
+  </dialog>
+
+  <img
+    src="{{fileURL .Content}}"
+    alt="{{.Filename}}"
+    class="bubble-image"
+    @click="openMediaDialog($refs.imgDialog_{{.ID}})"
+    style="cursor: pointer"
+  />
+
+  <div class="bubble-file-meta">
+    <span class="bubble-file-name">{{.Filename}}</span>
+    <span class="bubble-file-size">{{formatSize .Filesize}}</span>
+  </div>
 </div>
 {{end}}

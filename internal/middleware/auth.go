@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 type contextKey string
@@ -15,6 +15,7 @@ const ctxKeySession contextKey = "session"
 
 var publicPaths = map[string]struct{}{
 	"/login":         {},
+	"/api/login":     {},
 	"/favicon.ico":   {},
 	"/manifest.json": {},
 }

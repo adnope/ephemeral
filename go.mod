@@ -1,4 +1,4 @@
-module github.com/adnope/leandrop
+module github.com/adnope/ephemeral
 
 go 1.21
 

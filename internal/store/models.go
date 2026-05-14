@@ -59,10 +59,10 @@ type Session struct {
 
 // User represents a registered user.
 type User struct {
-	ID           int64          `json:"id"`
-	Username     string         `json:"username"`
-	PasswordHash string         `json:"-"`
-	CreatedAt    time.Time      `json:"created_at"`
+	ID           int64     `json:"id"`
+	Username     string    `json:"username"`
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 // ListFilter defines cursor-based pagination parameters.

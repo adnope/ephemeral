@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -9,20 +10,22 @@ import (
 )
 
 // ServeFile handles file downloads with path traversal protection.
-// GET /files/{path}
+// GET /api/files/{path}
 func (h *Handler) ServeFile(w http.ResponseWriter, r *http.Request) {
 	relPath := chi.URLParam(r, "*")
 
-	// Security: reject any path traversal attempt
-	cleanPath := filepath.Clean(relPath)
-	if strings.Contains(cleanPath, "..") {
+	decodedPath, err := url.PathUnescape(relPath)
+	if err != nil {
+		http.Error(w, "bad file path", http.StatusBadRequest)
+		return
+	}
+
+	cleanPath := filepath.Clean(decodedPath)
+	if cleanPath == "." || filepath.IsAbs(cleanPath) || strings.Contains(cleanPath, "..") {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
 	absPath := filepath.Join(h.dataDir, "uploads", cleanPath)
-
-	// http.ServeFile uses sendfile(2) syscall on Linux: data moves
-	// disk -> NIC via kernel, bypassing user space entirely.
 	http.ServeFile(w, r, absPath)
 }

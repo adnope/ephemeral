@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,70 +9,112 @@ import (
 	"path/filepath"
 	"time"
 
-	mediapkg "github.com/adnope/leandrop/internal/media"
-	"github.com/adnope/leandrop/internal/sse"
-	"github.com/adnope/leandrop/internal/store"
+	mediapkg "github.com/adnope/ephemeral/internal/media"
+	"github.com/adnope/ephemeral/internal/sse"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
+const maxUploadBytes = 2 << 30 // 2 GiB
+
 // Upload handles multipart file uploads.
-// POST /upload
+// POST /api/upload
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
-	// maxMemory=32MB: threshold for spilling part headers to temp file.
-	// File body remains a streaming io.Reader; never loaded into heap.
-	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		http.Error(w, "invalid form data", http.StatusBadRequest)
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
+
+	reader, err := r.MultipartReader()
+	if err != nil {
+		http.Error(w, "invalid multipart form", http.StatusBadRequest)
 		return
 	}
 
-	file, header, err := r.FormFile("file")
-	if err != nil {
+	uploadDir := filepath.Join(h.dataDir, "uploads")
+
+	var (
+		originalName string
+		finalName    string
+		finalPath    string
+		written      int64
+		foundFile    bool
+	)
+
+	for {
+		part, err := reader.NextPart()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			http.Error(w, "invalid multipart data", http.StatusBadRequest)
+			return
+		}
+
+		if part.FormName() != "file" {
+			_ = part.Close()
+			continue
+		}
+
+		foundFile = true
+		originalName = filepath.Base(part.FileName())
+		if originalName == "." || originalName == "" {
+			_ = part.Close()
+			http.Error(w, "missing filename", http.StatusBadRequest)
+			return
+		}
+
+		tmpFile, err := os.CreateTemp(uploadDir, "upload-*")
+		if err != nil {
+			_ = part.Close()
+			h.log.Error("upload: create temp", "err", err)
+			http.Error(w, "storage error", http.StatusInternalServerError)
+			return
+		}
+
+		tmpPath := tmpFile.Name()
+		success := false
+
+		func() {
+			defer func() {
+				_ = part.Close()
+				_ = tmpFile.Close()
+				if !success {
+					_ = os.Remove(tmpPath)
+				}
+			}()
+
+			written, err = io.Copy(tmpFile, part)
+			if err != nil {
+				h.log.Error("upload: copy", "err", err)
+				return
+			}
+
+			if err = tmpFile.Sync(); err != nil {
+				h.log.Error("upload: sync temp", "err", err)
+				return
+			}
+
+			finalName = fmt.Sprintf("%d_%s", time.Now().UnixMilli(), originalName)
+			finalPath = filepath.Join(uploadDir, finalName)
+
+			if err = os.Rename(tmpPath, finalPath); err != nil {
+				h.log.Error("upload: rename", "err", err)
+				return
+			}
+
+			success = true
+		}()
+
+		if err != nil {
+			http.Error(w, "upload failed", http.StatusInternalServerError)
+			return
+		}
+
+		break
+	}
+
+	if !foundFile {
 		http.Error(w, "missing file field", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
 
-	// Create temp file in uploads dir; atomic rename after write completes
-	uploadDir := filepath.Join(h.dataDir, "uploads")
-	tmpFile, err := os.CreateTemp(uploadDir, "upload-*")
-	if err != nil {
-		h.log.Error("upload: create temp", "err", err)
-		http.Error(w, "storage error", http.StatusInternalServerError)
-		return
-	}
-
-	// Cleanup on failure; removed after successful rename
-	tmpPath := tmpFile.Name()
-	success := false
-	defer func() {
-		tmpFile.Close()
-		if !success {
-			os.Remove(tmpPath)
-		}
-	}()
-
-	// Zero-copy streaming: io.Copy uses 32KB goroutine-stack buffer
-	written, err := io.Copy(tmpFile, file)
-	if err != nil {
-		h.log.Error("upload: copy", "err", err)
-		http.Error(w, "upload failed", http.StatusInternalServerError)
-		return
-	}
-	tmpFile.Close()
-
-	// Generate unique filename: timestamp_originalname
-	ts := time.Now().UnixMilli()
-	safeFilename := filepath.Base(header.Filename)
-	finalName := fmt.Sprintf("%d_%s", ts, safeFilename)
-	finalPath := filepath.Join(uploadDir, finalName)
-
-	if err := os.Rename(tmpPath, finalPath); err != nil {
-		h.log.Error("upload: rename", "err", err)
-		http.Error(w, "storage error", http.StatusInternalServerError)
-		return
-	}
-	success = true
-
-	// Sniff MIME type
 	mime, err := mediapkg.SniffMIME(finalPath)
 	if err != nil {
 		mime = "application/octet-stream"
@@ -81,8 +124,8 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	item := &store.Item{
 		Type:     itemType,
-		Content:  finalName, // relative path within uploads/
-		Filename: safeFilename,
+		Content:  finalName,
+		Filename: originalName,
 		Filesize: written,
 		Metadata: store.Metadata{MIME: mime},
 	}
@@ -94,17 +137,14 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Instant SSE broadcast: client sees the item immediately
 	h.broker.Broadcast(sse.Event{Type: "item:new", ID: id})
 
-	// Async metadata extraction: enriches the record within seconds
 	h.media.Enqueue(mediapkg.Job{
 		ItemID:   id,
 		FilePath: finalPath,
 		MIMEType: mime,
 	})
 
-	// Return the new item partial for HTMX swap
 	item.ID = id
 	item.CreatedAt = time.Now().UTC()
 	if err := h.tmpl.ExecuteTemplate(w, "item_partial", item); err != nil {

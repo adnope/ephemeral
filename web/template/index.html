@@ -1,178 +1,266 @@
 {{define "index.html"}}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#0f0f13">
-    <meta name="description" content="LeanDrop - Instant text and file sync across devices">
-    <title>LeanDrop</title>
-    <link rel="manifest" href="/static/manifest.json">
-    <link rel="stylesheet" href="/static/app.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!doctype html>
+<html>
+  <head>
+    <title>Ephemeral</title>
+    <link rel="stylesheet" href="/static/app.css" />
     <script src="/static/app.min.js" defer></script>
-</head>
-<body class="app-body" x-data="leandrop()">
-<div class="app-container">
-    <!-- Header -->
-    <header class="app-header">
-        <div class="header-left">
-            <h1 class="logo">LeanDrop</h1>
-        </div>
-        <nav class="header-nav">
-            <a href="/" class="nav-link active" id="nav-chat">Chat</a>
-            <a href="/history" class="nav-link" id="nav-history">History</a>
-            <form method="POST" action="/logout" style="display:inline">
-                <button type="submit" class="nav-link logout-btn" id="btn-logout">Logout</button>
-            </form>
+  </head>
+  <body x-data="ephemeral()">
+    <div
+      class="chat-app"
+      @dragover.prevent="dragover = true"
+      @dragleave.prevent="dragover = false"
+      @drop.prevent="handleDrop"
+    >
+      <div x-show="dragover" class="drag-overlay" style="display: none">
+        Drop file here to upload
+      </div>
+
+      <header>
+        <h1>Ephemeral</h1>
+        <nav class="top-nav" aria-label="Primary navigation">
+          <div class="top-nav-links">
+            <a href="/" class="top-nav-link is-active">Chat</a>
+            <a href="/history" class="top-nav-link">History</a>
+          </div>
+
+          <form method="POST" action="/api/logout" class="top-nav-logout">
+            <button type="submit" class="top-nav-logout-btn">Logout</button>
+          </form>
         </nav>
-    </header>
+      </header>
 
-    <!-- Chat Stream -->
-    <main class="chat-container"
-          @dragover.prevent="dragover = true"
-          @dragleave.prevent="dragover = false"
-          @drop.prevent="handleDrop($event)"
-          :class="{ 'drag-active': dragover }">
-
-        <div class="drag-overlay" x-show="dragover" x-transition>
-            <div class="drag-overlay-content">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                <p>Drop file to upload</p>
-            </div>
+      <main id="chat-stream">
+        {{range .Items}} {{template "item_partial" .}} {{end}} {{if
+        .NextCursor}}
+        <div class="load-more-row">
+          <button
+            type="button"
+            class="load-more-btn"
+            hx-get="/?cursor={{.NextCursor}}"
+            hx-trigger="click"
+            hx-target="closest .load-more-row"
+            hx-swap="outerHTML"
+          >
+            Load older messages
+          </button>
         </div>
+        {{end}}
+      </main>
 
-        <div id="chat-stream" class="chat-stream">
-            {{range .Items}}
-                {{template "item_partial" .}}
-            {{end}}
+      <footer>
+        <form @submit.prevent="sendMessage" class="input-form">
+          <label class="composer-icon-btn" aria-label="Attach files">
+            <img src="/static/attachment.svg" alt="" class="composer-icon" />
+            <input
+              type="file"
+              multiple
+              @change="handleFileSelect"
+              @cancel="$el.blur()"
+              @click="$el.blur()"
+              class="visually-hidden-file-input"
+            />
+          </label>
 
-            {{if .NextCursor}}
-            <div class="load-more"
-                 hx-get="/?cursor={{.NextCursor}}"
-                 hx-trigger="revealed"
-                 hx-target="#chat-stream"
-                 hx-swap="beforeend"
-                 hx-indicator=".loader">
-                <div class="loader"></div>
-            </div>
-            {{end}}
-        </div>
+          <textarea
+            x-ref="messageInput"
+            x-model="message"
+            placeholder="Type message..."
+            class="input-text composer-input"
+            @input="resize($el)"
+            @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else { message += '\n'; $nextTick(() => resize($el)); }"
+            rows="1"
+          ></textarea>
 
-        <!-- Upload Progress -->
-        <div class="upload-progress" x-show="uploading" x-transition>
-            <div class="upload-bar"></div>
-            <span>Uploading...</span>
-        </div>
-    </main>
-
-    <!-- Input Bar -->
-    <footer class="input-bar">
-        <form @submit="sendMessage($event)" class="input-form" id="message-form">
-            <label class="file-btn" for="file-input" id="btn-attach">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
-                </svg>
-            </label>
-            <input type="file" id="file-input" class="hidden" @change="handleFileSelect($event)">
-            <input type="text"
-                   x-ref="messageInput"
-                   class="message-input"
-                   placeholder="Type a message..."
-                   autocomplete="off"
-                   id="input-message">
-            <button type="submit" class="send-btn" id="btn-send">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="22" y1="2" x2="11" y2="13"/>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-            </button>
+          <button
+            type="submit"
+            class="composer-send-btn"
+            aria-label="Send message"
+          >
+            &#10148;
+          </button>
         </form>
-    </footer>
-</div>
 
-<script>
-function leandrop() {
-    return {
-        uploading: false,
-        dragover: false,
+        <span x-show="uploading" class="upload-status" style="display: none">
+          Uploading file...
+        </span>
+      </footer>
+    </div>
 
-        init() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/static/sw.js');
-            }
-            this.connectSSE();
-        },
+    <dialog x-ref="videoPlayerDialog" class="media-dialog" tabindex="-1">
+      <div class="media-dialog-actions">
+        <a :href="activeVideoUrl" :download="activeVideoName" class="btn">
+          Download
+        </a>
+        <button type="button" @click="closeVideoPlayer" class="btn">
+          Close
+        </button>
+      </div>
 
-        connectSSE() {
-            const es = new EventSource('/events');
-            es.addEventListener('item:new', () => {
-                htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
-            });
-            es.addEventListener('item:updated', () => {
-                htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
-            });
-            es.onerror = () => {
-                setTimeout(() => this.connectSSE(), 3000);
+      <div class="media-dialog-title" x-text="activeVideoName"></div>
+
+      <video
+        x-ref="videoPlayer"
+        controls
+        preload="none"
+        class="media-dialog-video"
+      ></video>
+    </dialog>
+
+    {{template "media_scripts" .}}
+
+    <script>
+      function ephemeral() {
+        return {
+          uploading: false,
+          dragover: false,
+          message: "",
+          activeVideoUrl: "",
+          activeVideoName: "",
+          activeVideoMime: "",
+
+          init() {
+            const es = new EventSource("/api/events");
+            let refreshTimer = 0;
+
+            const refreshChat = () => {
+              window.clearTimeout(refreshTimer);
+              refreshTimer = window.setTimeout(() => {
+                htmx.ajax("GET", "/", {
+                  target: "#chat-stream",
+                  swap: "innerHTML",
+                });
+              }, 250);
             };
-        },
 
-        handleDrop(e) {
+            es.addEventListener("item:new", refreshChat);
+            es.addEventListener("item:updated", refreshChat);
+          },
+
+          async handleDrop(e) {
             this.dragover = false;
             const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                this.uploadFile(files[0]);
-            }
-        },
+            if (!files || files.length === 0) return;
 
-        handleFileSelect(e) {
-            const files = e.target.files;
-            if (files.length > 0) {
-                this.uploadFile(files[0]);
+            for (let i = 0; i < files.length; i++) {
+              await this.uploadFile(files[i]);
             }
-            e.target.value = '';
-        },
+          },
 
-        async uploadFile(file) {
-            this.uploading = true;
-            const form = new FormData();
-            form.append('file', file);
+          async handleFileSelect(e) {
+            const input = e.target;
+            const files = input.files;
+
             try {
-                const res = await fetch('/upload', { method: 'POST', body: form });
-                if (res.ok) {
-                    htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
-                }
-            } catch(err) {
-                console.error('Upload failed:', err);
+              if (!files || files.length === 0) return;
+
+              for (let i = 0; i < files.length; i++) {
+                await this.uploadFile(files[i]);
+              }
             } finally {
-                this.uploading = false;
+              input.value = "";
+              input.blur();
             }
-        },
+          },
 
-        async sendMessage(e) {
-            e.preventDefault();
-            const input = this.$refs.messageInput;
-            const text = input.value.trim();
-            if (!text) return;
-            input.value = '';
+          async uploadFile(file) {
+            this.uploading = true;
 
-            const form = new FormData();
-            form.append('text', text);
             try {
-                await fetch('/message', { method: 'POST', body: form });
-            } catch(err) {
-                console.error('Send failed:', err);
+              const form = new FormData();
+              form.append("file", file);
+
+              const response = await fetch("/api/upload", {
+                method: "POST",
+                body: form,
+              });
+
+              if (!response.ok) {
+                throw new Error(`upload failed: ${response.status}`);
+              }
+            } finally {
+              this.uploading = false;
             }
-        }
-    }
-}
-</script>
-</body>
+          },
+
+          async sendMessage() {
+            const text = this.message.trim();
+            if (!text) return;
+
+            const params = new URLSearchParams();
+            params.append("text", text);
+
+            const response = await fetch("/api/message", {
+              method: "POST",
+              body: params,
+            });
+
+            if (!response.ok) {
+              throw new Error(`send message failed: ${response.status}`);
+            }
+
+            this.message = "";
+            this.$nextTick(() => {
+              if (this.$refs.messageInput) {
+                this.$refs.messageInput.style.height = "auto";
+              }
+            });
+          },
+
+          openVideoPlayer(el) {
+            if (!(el instanceof HTMLElement)) return;
+
+            this.activeVideoUrl = el.dataset.videoUrl || "";
+            this.activeVideoMime = el.dataset.videoMime || "video/mp4";
+            this.activeVideoName = el.dataset.videoName || "video";
+
+            if (!this.activeVideoUrl) return;
+
+            this.$nextTick(() => {
+              const video = this.$refs.videoPlayer;
+              const dialog = this.$refs.videoPlayerDialog;
+
+              if (!(video instanceof HTMLVideoElement)) return;
+              if (!(dialog instanceof HTMLDialogElement)) return;
+
+              video.pause();
+              video.removeAttribute("src");
+              video.innerHTML = "";
+
+              const source = document.createElement("source");
+              source.src = this.activeVideoUrl;
+              source.type = this.activeVideoMime;
+              video.appendChild(source);
+
+              video.load();
+              dialog.showModal();
+            });
+          },
+
+          closeVideoPlayer() {
+            const video = this.$refs.videoPlayer;
+            const dialog = this.$refs.videoPlayerDialog;
+
+            if (video instanceof HTMLVideoElement) {
+              video.pause();
+              video.removeAttribute("src");
+              video.innerHTML = "";
+              video.load();
+            }
+
+            if (dialog instanceof HTMLDialogElement && dialog.open) {
+              dialog.close();
+            }
+          },
+
+          resize(el) {
+            el.style.height = "auto";
+            el.style.height = el.scrollHeight + "px";
+          },
+        };
+      }
+    </script>
+  </body>
 </html>
 {{end}}

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/store"
 	"golang.org/x/crypto/bcrypt"
 )
 

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 // ffprobeOutput maps the JSON output of ffprobe.
@@ -28,11 +28,11 @@ type ffprobeFormat struct {
 	Duration string `json:"duration"`
 }
 
-func (p *ffprobeOutput) toMetadata() store.Metadata {
-	meta := store.Metadata{MIME: "video/mp4"}
+func (p *ffprobeOutput) toMetadata(mimeType string) store.Metadata {
+	meta := store.Metadata{MIME: mimeType}
 
 	for _, s := range p.Streams {
-		if s.Codec == "video" {
+		if s.Codec == "" || s.Codec == "video" {
 			meta.Width = s.Width
 			meta.Height = s.Height
 			break
@@ -51,12 +51,16 @@ func (p *ffprobeOutput) toMetadata() store.Metadata {
 	return meta
 }
 
-// extractVideoMeta runs ffprobe to extract video dimensions and duration.
-func extractVideoMeta(ctx context.Context, path string) (store.Metadata, error) {
+// extractVideoMeta runs ffprobe to extract only video dimensions and duration.
+func extractVideoMeta(ctx context.Context, path string, mimeType string) (store.Metadata, error) {
 	args := []string{
-		"-v", "quiet", "-print_format", "json",
-		"-show_streams", "-show_format", path,
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=codec_type,width,height:format=duration",
+		"-of", "json",
+		path,
 	}
+
 	cmd := exec.CommandContext(ctx, "ffprobe", args...)
 	out, err := cmd.Output()
 	if err != nil {
@@ -68,22 +72,31 @@ func extractVideoMeta(ctx context.Context, path string) (store.Metadata, error) 
 		return store.Metadata{}, fmt.Errorf("ffprobe unmarshal: %w", err)
 	}
 
-	return probe.toMetadata(), nil
+	return probe.toMetadata(mimeType), nil
 }
 
-// generateThumbnail creates a JPEG thumbnail from the first frame of a video.
+// generateThumbnail creates a bounded JPEG thumbnail from the first video stream.
 // Output: {path_without_ext}_thumb.jpg
 func generateThumbnail(ctx context.Context, path string) error {
 	ext := filepath.Ext(path)
 	thumbPath := strings.TrimSuffix(path, ext) + "_thumb.jpg"
 
 	args := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-nostdin",
 		"-i", path,
-		"-vframes", "1",
-		"-q:v", "8", // lower quality for thumbnail, saves disk
-		"-y",         // overwrite if exists
+		"-map", "0:v:0",
+		"-an",
+		"-sn",
+		"-dn",
+		"-frames:v", "1",
+		"-vf", "scale='min(640,iw)':-2",
+		"-q:v", "10",
+		"-y",
 		thumbPath,
 	}
+
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("ffmpeg thumbnail: %w", err)

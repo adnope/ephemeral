@@ -8,7 +8,7 @@ import (
 	_ "image/png"
 	"os"
 
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 // extractImageMeta reads only the image header to extract dimensions.
@@ -18,7 +18,7 @@ func extractImageMeta(path string) (store.Metadata, error) {
 	if err != nil {
 		return store.Metadata{}, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	cfg, format, err := image.DecodeConfig(f)
 	if err != nil {

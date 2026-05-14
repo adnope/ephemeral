@@ -5,8 +5,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/store"
 )
+
+const chatPageSize = 100
 
 // Index serves the main chat stream page.
 // GET /
@@ -18,7 +20,7 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 
 	items, err := h.store.List(r.Context(), store.ListFilter{
 		Cursor: cursor,
-		Limit:  30,
+		Limit:  chatPageSize,
 	})
 	if err != nil {
 		h.log.Error("index: list items", "err", err)
@@ -28,7 +30,7 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 
 	// Determine next cursor for infinite scroll
 	var nextCursor int64
-	if len(items) == 30 {
+	if len(items) == chatPageSize {
 		nextCursor = items[len(items)-1].ID
 	}
 

@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const historyPageSize = 100
+
 // History serves the media gallery view.
 // GET /history
 func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +23,7 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		types = strings.Split(t, ",")
 	}
 
-	items, err := h.store.MediaHistory(r.Context(), types, cursor, 30)
+	items, err := h.store.MediaHistory(r.Context(), types, cursor, historyPageSize)
 	if err != nil {
 		h.log.Error("history: query", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
@@ -29,7 +31,7 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nextCursor int64
-	if len(items) == 30 {
+	if len(items) == historyPageSize {
 		nextCursor = items[len(items)-1].ID
 	}
 

@@ -28,8 +28,9 @@ func (b *Broker) Subscribe() chan Event {
 
 // Unsubscribe removes a client and closes its channel.
 func (b *Broker) Unsubscribe(ch chan Event) {
-	b.subscribers.Delete(ch)
-	close(ch)
+	if _, loaded := b.subscribers.LoadAndDelete(ch); loaded {
+		close(ch)
+	}
 }
 
 // Broadcast sends an event to all connected clients.
@@ -42,6 +43,15 @@ func (b *Broker) Broadcast(e Event) {
 		default:
 			// Subscriber is too slow; event dropped. Not fatal for SSE.
 		}
+		return true
+	})
+}
+
+// Shutdown disconnects all subscribers so the server can terminate gracefully.
+func (b *Broker) Shutdown() {
+	b.subscribers.Range(func(key, _ any) bool {
+		ch := key.(chan Event)
+		b.Unsubscribe(ch)
 		return true
 	})
 }
@@ -68,11 +78,14 @@ func (b *Broker) ServeSSE(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		select {
-		case event := <-ch:
-			fmt.Fprintf(w, "event: %s\ndata: %d\n\n", event.Type, event.ID)
+		case event, ok := <-ch:
+			if !ok {
+				return // Channel closed by Shutdown or Unsubscribe
+			}
+			_, _ = fmt.Fprintf(w, "event: %s\ndata: %d\n\n", event.Type, event.ID)
 			flusher.Flush()
 		case <-ticker.C:
-			fmt.Fprintf(w, ": keepalive\n\n")
+			_, _ = fmt.Fprintf(w, ": keepalive\n\n")
 			flusher.Flush()
 		case <-r.Context().Done():
 			return // client disconnected

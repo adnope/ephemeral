@@ -1,0 +1,14 @@
+{
+  "type": "module",
+  "scripts": {
+    "format": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\"",
+    "lint": "eslint \"**/*.js\"",
+    "fix": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\" && eslint \"**/*.js\" --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "eslint": "latest",
+    "globals": "^17.6.0",
+    "prettier": "latest"
+  }
+}

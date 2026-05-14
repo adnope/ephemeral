@@ -1,0 +1,147 @@
+{{define "media_dialog_actions"}}
+<div class="media-dialog-actions">
+  <a href="{{fileURL .Content}}" download="{{.Filename}}" class="btn">
+    Download
+  </a>
+  <button type="button" @click="$el.closest('dialog').close()" class="btn">
+    Close
+  </button>
+</div>
+{{end}} {{define "media_dialog_nav_chat"}}
+<div class="media-dialog-nav">
+  <button
+    type="button"
+    @click="navigateMedia($el.closest('dialog'), -1)"
+    class="btn"
+  >
+    &larr; Prev
+  </button>
+  <span class="media-dialog-title">{{.Filename}}</span>
+  <button
+    type="button"
+    @click="navigateMedia($el.closest('dialog'), 1)"
+    class="btn"
+  >
+    Next &rarr;
+  </button>
+</div>
+{{end}} {{define "media_dialog_nav_history"}}
+<div class="media-dialog-nav">
+  <button
+    type="button"
+    @click="navigateMedia($el.closest('dialog'), 1)"
+    class="btn"
+  >
+    &larr; Prev
+  </button>
+  <span class="media-dialog-title">{{.Filename}}</span>
+  <button
+    type="button"
+    @click="navigateMedia($el.closest('dialog'), -1)"
+    class="btn"
+  >
+    Next &rarr;
+  </button>
+</div>
+{{end}} {{define "video_thumb_or_placeholder"}} {{if .Metadata.Thumb}}
+<div
+  class="video-thumb-card"
+  data-video-url="{{fileURL .Content}}"
+  data-video-mime="{{.Metadata.MIME}}"
+  data-video-name="{{.Filename}}"
+  @click="openVideoPlayer($el)"
+  @keydown.enter.prevent="openVideoPlayer($el)"
+  @keydown.space.prevent="openVideoPlayer($el)"
+  role="button"
+  tabindex="0"
+>
+  <img
+    src="{{fileURL .Metadata.Thumb}}"
+    alt="{{.Filename}}"
+    class="video-thumb-img"
+    loading="lazy"
+  />
+  <span class="video-play-overlay">&#9654;</span>
+</div>
+{{else}}
+<div
+  class="video-placeholder-card"
+  data-video-url="{{fileURL .Content}}"
+  data-video-mime="{{.Metadata.MIME}}"
+  data-video-name="{{.Filename}}"
+  @click="openVideoPlayer($el)"
+  @keydown.enter.prevent="openVideoPlayer($el)"
+  @keydown.space.prevent="openVideoPlayer($el)"
+  role="button"
+  tabindex="0"
+>
+  <span class="video-placeholder-play">&#9654;</span>
+  <span>Video</span>
+</div>
+{{end}} {{end}} {{define "media_scripts"}}
+<script>
+  window.openMediaDialog = function (dialog) {
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    dialog.showModal();
+
+    requestAnimationFrame(() => {
+      dialog.focus({ preventScroll: true });
+    });
+  };
+
+  window.navigateMedia = function (currentDialog, direction) {
+    if (!(currentDialog instanceof HTMLDialogElement)) return;
+
+    const dialogs = Array.from(
+      document.querySelectorAll("dialog.media-dialog"),
+    ).filter((dialog) => dialog.isConnected);
+
+    const index = dialogs.indexOf(currentDialog);
+    if (index === -1) return;
+
+    const targetIndex = index - direction;
+    if (targetIndex < 0 || targetIndex >= dialogs.length) return;
+
+    const currentVideo = currentDialog.querySelector("video");
+    if (currentVideo) currentVideo.pause();
+
+    currentDialog.close();
+    window.openMediaDialog(dialogs[targetIndex]);
+  };
+
+  window.handleMediaDialogKeydown = function (event, dialog) {
+    if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.navigateMedia(dialog, 1);
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.navigateMedia(dialog, -1);
+    }
+  };
+
+  window.fitMediaElement = function (element) {
+    const mediaWidth = element.naturalWidth || element.videoWidth;
+    const mediaHeight = element.naturalHeight || element.videoHeight;
+    if (!mediaWidth || !mediaHeight) return;
+
+    const mediaRatio = mediaWidth / mediaHeight;
+    const screenRatio = (window.innerWidth * 0.9) / (window.innerHeight * 0.85);
+
+    if (mediaRatio > screenRatio) {
+      element.style.width = "90vw";
+      element.style.height = "auto";
+    } else {
+      element.style.height = "85vh";
+      element.style.width = "auto";
+    }
+  };
+</script>
+{{end}}

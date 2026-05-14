@@ -31,14 +31,14 @@ func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
 	}
 	for _, p := range pragmas {
 		if _, err := db.ExecContext(context.Background(), p); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("store.OpenDB pragma %q: %w", p, err)
 		}
 	}
 
 	if migrationSQL != "" {
 		if _, err := db.ExecContext(context.Background(), migrationSQL); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("store.OpenDB migration: %w", err)
 		}
 		slog.Info("migrations applied")

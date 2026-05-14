@@ -1,17 +1,15 @@
-version: "3.8"
-
 services:
-  leandrop:
+  ephemeral:
     build: .
     ports:
       - "8080:8080"
     volumes:
-      - leandrop-data:/app/data
+      - ephemeral-data:/app/data
     environment:
       - PORT=8080
       - DATA_DIR=/app/data
-      - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
+      - SESSION_SECRET=${SESSION_SECRET:-change_me}
     restart: unless-stopped
 
 volumes:
-  leandrop-data:
+  ephemeral-data:

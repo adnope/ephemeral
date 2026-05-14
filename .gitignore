@@ -27,3 +27,11 @@ Thumbs.db
 
 # Environment
 .env
+
+node_modules
+dist
+build
+coverage
+
+ARCHITECTURE.md
+SPECS.md

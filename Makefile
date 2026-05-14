@@ -1,27 +1,58 @@
-.PHONY: build dev run lint clean docker docker-run
+.PHONY: build dev run format lint fix clean clean-data docker docker-run \
+	format-go lint-go format-web lint-web fix-web install-web
+
+APP_NAME := ephemeral
+WEB_DIR := web
+
+GO_DIRS := ./cmd/... ./internal/...
 
 build:
-	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ./bin/leandrop ./cmd/leandrop
+	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ./bin/$(APP_NAME) ./cmd/$(APP_NAME)
 
 dev:
-	go run ./cmd/leandrop
+	air
 
 run: build
-	./bin/leandrop
+	./bin/$(APP_NAME)
 
-lint:
-	golangci-lint run ./...
+format: format-go format-web
+
+format-go:
+	go fmt $(GO_DIRS)
+
+format-web:
+	cd $(WEB_DIR) && npm run format
+
+lint: lint-go lint-web
+
+lint-go:
+	go vet $(GO_DIRS)
+	golangci-lint run $(GO_DIRS)
+
+lint-web:
+	cd $(WEB_DIR) && npm run lint
+
+fix: format-go fix-web lint-go
+
+fix-web:
+	cd $(WEB_DIR) && npm run fix
+
+install-web:
+	cd $(WEB_DIR) && npm install
 
 clean:
-	rm -rf ./bin ./data
+	rm -rf ./bin
+
+clean-data:
+	rm -rf ./data
 
 docker:
-	docker build -t leandrop:latest .
+	docker build -t $(APP_NAME):latest .
 
 docker-run:
 	docker run -d \
-		--name leandrop \
+		--name $(APP_NAME) \
 		-p 8080:8080 \
-		-v leandrop-data:/app/data \
+		-v $(APP_NAME)-data:/app/data \
 		--restart unless-stopped \
-		leandrop:latest
+		$(APP_NAME):latest

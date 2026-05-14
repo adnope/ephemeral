@@ -1,21 +1,26 @@
 {{define "item_file"}}
-<div class="file-content">
-    <div class="file-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-        </svg>
-    </div>
-    <div class="file-details">
-        <span class="file-name">{{.Filename}}</span>
-        <span class="file-size">{{formatSize .Filesize}}</span>
-    </div>
-    <a href="/files/{{.Content}}" download="{{.Filename}}" class="file-download" id="download-{{.ID}}">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-        </svg>
+<div>
+  <div class="bubble-file-meta">
+    <span class="bubble-file-name">{{.Filename}}</span>
+    <span class="bubble-file-size">{{formatSize .Filesize}}</span>
+  </div>
+
+  <div class="bubble-file-actions">
+    <a
+      href="{{fileURL .Content}}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="file-action-link"
+    >
+      View
     </a>
+    <a
+      href="{{fileURL .Content}}"
+      download="{{.Filename}}"
+      class="file-action-link"
+    >
+      Download
+    </a>
+  </div>
 </div>
 {{end}}

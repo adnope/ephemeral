@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,12 +15,12 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/adnope/leandrop/internal/config"
-	"github.com/adnope/leandrop/internal/handler"
-	"github.com/adnope/leandrop/internal/media"
-	mw "github.com/adnope/leandrop/internal/middleware"
-	"github.com/adnope/leandrop/internal/sse"
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/config"
+	"github.com/adnope/ephemeral/internal/handler"
+	"github.com/adnope/ephemeral/internal/media"
+	mw "github.com/adnope/ephemeral/internal/middleware"
+	"github.com/adnope/ephemeral/internal/sse"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 func main() {
@@ -34,7 +35,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Read migration SQL from disk (at project root, relative to working dir)
 	migrationSQL, err := os.ReadFile("migrations/001_initial.sql")
 	if err != nil {
 		logger.Error("migration read failed", "err", err)
@@ -46,63 +46,49 @@ func main() {
 		logger.Error("database init failed", "err", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
-	// Repositories
 	itemRepo := store.NewItemRepo(db)
 	sessionRepo := store.NewSessionRepo(db)
 	userRepo := store.NewUserRepo(db)
 
-	// SSE broker
 	broker := sse.NewBroker()
 
-	// Media worker pool
 	mediaPool := media.NewPool(itemRepo, broker)
 
-	// Templates: parse all template files once at startup
 	tmpl, err := parseTemplates()
 	if err != nil {
 		logger.Error("template parse failed", "err", err)
 		os.Exit(1)
 	}
 
-	// Handler with all dependencies
 	h := handler.NewHandler(itemRepo, sessionRepo, userRepo, broker, mediaPool, tmpl, cfg.DataDir, logger)
 
-	// Router
 	r := chi.NewRouter()
 
-	// Layer 1: Infrastructure
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 
-	// Layer 2: Observability
 	r.Use(mw.RequestLogger(logger))
-
-	// Layer 3: Security - rate limit before auth
 	r.Use(mw.RateLimit(100, time.Minute))
-
-	// Layer 4: Session Auth
 	r.Use(mw.SessionAuth(sessionRepo))
 
-	// Static files
 	staticFS := http.FileServer(http.Dir("web/static"))
 	r.Handle("/static/*", http.StripPrefix("/static/", staticFS))
 
-	// Routes
 	r.Get("/", h.Index)
-	r.Get("/events", h.Events)
-	r.Post("/upload", h.Upload)
-	r.Post("/message", h.Message)
-	r.Get("/files/*", h.ServeFile)
 	r.Get("/history", h.History)
 	r.Get("/search", h.SearchItems)
 	r.Get("/login", h.LoginPage)
-	r.Post("/login", h.Login)
-	r.Post("/logout", h.Logout)
 
-	// Session cleanup ticker
+	r.Get("/api/events", h.Events)
+	r.Post("/api/upload", h.Upload)
+	r.Post("/api/message", h.Message)
+	r.Get("/api/files/*", h.ServeFile)
+	r.Post("/api/login", h.Login)
+	r.Post("/api/logout", h.Logout)
+
 	go func() {
 		ticker := time.NewTicker(1 * time.Hour)
 		defer ticker.Stop()
@@ -119,11 +105,10 @@ func main() {
 		Addr:         addr,
 		Handler:      r,
 		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 5 * time.Minute, // long for SSE and large file uploads
+		WriteTimeout: 5 * time.Minute,
 		IdleTimeout:  120 * time.Second,
 	}
 
-	// Graceful shutdown
 	shutdownCh := make(chan os.Signal, 1)
 	signal.Notify(shutdownCh, syscall.SIGINT, syscall.SIGTERM)
 
@@ -138,10 +123,11 @@ func main() {
 	<-shutdownCh
 	logger.Info("shutting down...")
 
+	broker.Shutdown()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Shutdown order: HTTP server first, then media workers
 	if err := srv.Shutdown(ctx); err != nil {
 		logger.Error("server shutdown error", "err", err)
 	}
@@ -150,11 +136,10 @@ func main() {
 	logger.Info("shutdown complete")
 }
 
-// parseTemplates parses all HTML templates with custom functions.
-// Called once at startup; templates are immutable after this point.
 func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
 		"formatSize": formatSize,
+		"fileURL":    fileURL,
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseGlob("web/template/*.html")
@@ -170,7 +155,10 @@ func parseTemplates() (*template.Template, error) {
 	return tmpl, nil
 }
 
-// formatSize converts bytes to a human-readable string.
+func fileURL(name string) string {
+	return "/api/files/" + url.PathEscape(name)
+}
+
 func formatSize(bytes int64) string {
 	const (
 		kb = 1024

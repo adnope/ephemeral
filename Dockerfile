@@ -1,49 +1,46 @@
-# ---------------------------------------------------------------
-# Stage 1: Build - Full Go toolchain
-# ---------------------------------------------------------------
 FROM golang:1.21-alpine AS builder
 
 WORKDIR /src
 
-# Dependency layer - cached unless go.mod/go.sum change
+RUN apk add --no-cache ca-certificates
+
 COPY go.mod go.sum ./
-RUN go mod download
 
-# Copy source and build
-COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
-# CGO_ENABLED=0: required for modernc.org/sqlite (pure Go)
-# -trimpath: remove local build paths from binary
-# -ldflags: strip debug symbols (-s) and DWARF (-w)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+COPY cmd ./cmd
+COPY internal ./internal
+COPY migrations ./migrations
+COPY web ./web
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build \
-    -trimpath \
-    -ldflags="-s -w" \
-    -o /bin/leandrop \
-    ./cmd/leandrop
+      -trimpath \
+      -ldflags="-s -w -buildid=" \
+      -o /out/ephemeral \
+      ./cmd/ephemeral
 
-# ---------------------------------------------------------------
-# Stage 2: Runtime - Minimal image with ffmpeg
-# ---------------------------------------------------------------
-FROM debian:bookworm-slim AS runtime
+FROM alpine:3.20 AS runtime
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# Non-root user for security
-RUN useradd -r -u 1001 -s /sbin/nologin leandrop
-USER leandrop
+RUN apk add --no-cache \
+      ffmpeg \
+      ca-certificates \
+    && addgroup -S ephemeral \
+    && adduser -S -D -H -h /app -s /sbin/nologin -G ephemeral ephemeral
 
 WORKDIR /app
 
-COPY --from=builder /bin/leandrop     /app/leandrop
-COPY --from=builder /src/web          /app/web
-COPY --from=builder /src/migrations   /app/migrations
+COPY --from=builder --chown=ephemeral:ephemeral /out/ephemeral /app/ephemeral
+COPY --from=builder --chown=ephemeral:ephemeral /src/web /app/web
+COPY --from=builder --chown=ephemeral:ephemeral /src/migrations /app/migrations
 
-RUN mkdir -p /app/data/uploads/thumbs
+RUN mkdir -p /app/data/uploads/thumbs \
+    && chown -R ephemeral:ephemeral /app/data
+
+USER ephemeral
 
 EXPOSE 8080
 
-ENTRYPOINT ["/app/leandrop"]
+ENTRYPOINT ["/app/ephemeral"]

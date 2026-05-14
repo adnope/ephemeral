@@ -69,7 +69,7 @@ func (r *sqliteItemRepo) List(ctx context.Context, f ListFilter) ([]*Item, error
 	if err != nil {
 		return nil, fmt.Errorf("store.List: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanItems(rows)
 }
@@ -106,7 +106,7 @@ func (r *sqliteItemRepo) Search(ctx context.Context, q string, limit int) ([]*It
 	if err != nil {
 		return nil, fmt.Errorf("store.Search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanItems(rows)
 }
@@ -136,7 +136,7 @@ func (r *sqliteItemRepo) MediaHistory(ctx context.Context, types []string, curso
 	if err != nil {
 		return nil, fmt.Errorf("store.MediaHistory: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanItems(rows)
 }
@@ -192,4 +192,3 @@ func parseSQLiteTime(s string) time.Time {
 	}
 	return time.Time{}
 }
-

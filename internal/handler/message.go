@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adnope/leandrop/internal/sse"
-	"github.com/adnope/leandrop/internal/store"
+	"github.com/adnope/ephemeral/internal/sse"
+	"github.com/adnope/ephemeral/internal/store"
 )
 
 // Message handles simple text message submissions.

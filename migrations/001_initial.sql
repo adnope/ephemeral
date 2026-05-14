@@ -1,6 +1,3 @@
--- LeanDrop v1.0.0 — Initial Schema
--- Applied via go:embed at database initialization.
-
 -- Core Data
 CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
