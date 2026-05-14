@@ -8,7 +8,6 @@ import (
 	"sync"
 )
 
-// extMap covers the 99% case with zero I/O.
 var extMap = map[string]string{
 	".jpg":  "image/jpeg",
 	".jpeg": "image/jpeg",
@@ -53,15 +52,10 @@ var videoExtensions = map[string]bool{
 	".avi": true, ".mkv": true, ".flv": true,
 }
 
-// sniffPool avoids per-request heap allocation for the 512-byte MIME sniff buffer.
 var sniffPool = sync.Pool{
 	New: func() any { return new([512]byte) },
 }
 
-// SniffMIME determines MIME type using a three-pass waterfall:
-// 1. Extension lookup (O(1), zero I/O)
-// 2. Magic byte detection (reads 512 bytes)
-// 3. Video fallback placeholder for ffprobe
 func SniffMIME(filePath string) (string, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if mime, ok := extMap[ext]; ok {
@@ -80,25 +74,20 @@ func SniffMIME(filePath string) (string, error) {
 	n, _ := f.Read(buf[:])
 	detected := http.DetectContentType(buf[:n])
 
-	// If still generic octet-stream for a known video container,
-	// return placeholder; ffprobe will determine the real type later.
 	if detected == "application/octet-stream" && videoExtensions[ext] {
 		return "video/unknown", nil
 	}
 	return detected, nil
 }
 
-// IsImage returns true if the MIME type is an image.
 func IsImage(mime string) bool {
 	return strings.HasPrefix(mime, "image/")
 }
 
-// IsVideo returns true if the MIME type is a video.
 func IsVideo(mime string) bool {
 	return strings.HasPrefix(mime, "video/")
 }
 
-// ItemTypeFromMIME maps a MIME type to an item type string.
 func ItemTypeFromMIME(mime string) string {
 	switch {
 	case IsImage(mime):

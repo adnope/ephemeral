@@ -116,7 +116,6 @@ func main() {
 		}
 	}()
 
-	// Server
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{
 		Addr:         addr,

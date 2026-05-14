@@ -6,10 +6,9 @@ import (
 	"time"
 )
 
-// Item represents a shared text message or file in the chat stream.
 type Item struct {
 	ID        int64     `json:"id"`
-	Type      string    `json:"type"` // text, image, video, file
+	Type      string    `json:"type"`
 	Content   string    `json:"content"`
 	Filename  string    `json:"filename,omitempty"`
 	Filesize  int64     `json:"filesize,omitempty"`
@@ -17,7 +16,6 @@ type Item struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// Metadata holds type-specific attributes stored as JSON in SQLite.
 type Metadata struct {
 	Width    int    `json:"width,omitempty"`
 	Height   int    `json:"height,omitempty"`
@@ -26,8 +24,7 @@ type Metadata struct {
 	Thumb    string `json:"thumb,omitempty"`
 }
 
-// Scan implements sql.Scanner for reading JSON metadata from SQLite.
-func (m *Metadata) Scan(src interface{}) error {
+func (m *Metadata) Scan(src any) error {
 	var data []byte
 	switch v := src.(type) {
 	case string:
@@ -40,7 +37,6 @@ func (m *Metadata) Scan(src interface{}) error {
 	return json.Unmarshal(data, m)
 }
 
-// Value implements driver.Valuer for writing JSON metadata to SQLite.
 func (m Metadata) Value() (string, error) {
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -49,7 +45,6 @@ func (m Metadata) Value() (string, error) {
 	return string(b), nil
 }
 
-// Session represents an authenticated user session.
 type Session struct {
 	Token     string    `json:"token"`
 	UserID    int64     `json:"user_id"`
@@ -57,7 +52,6 @@ type Session struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// User represents a registered user.
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
@@ -65,11 +59,9 @@ type User struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// ListFilter defines cursor-based pagination parameters.
 type ListFilter struct {
 	Cursor int64
 	Limit  int
 }
 
-// NullableString wraps sql.NullString for scanning nullable TEXT columns.
 type NullableString = sql.NullString

@@ -10,7 +10,6 @@ import (
 
 const chatPageSize = 50
 
-// Index serves the main chat stream page.
 // GET /
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
@@ -28,18 +27,16 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Determine next cursor for infinite scroll
 	var nextCursor int64
 	if len(items) == chatPageSize {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Items":      items,
 		"NextCursor": nextCursor,
 	}
 
-	// If this is an HTMX request for more items, render only the partial
 	if r.Header.Get("HX-Request") == "true" {
 		if err := h.tmpl.ExecuteTemplate(w, "items_partial", data); err != nil {
 			h.log.Error("index: render partial", "err", err)

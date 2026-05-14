@@ -12,7 +12,6 @@ import (
 	"github.com/adnope/ephemeral/internal/store"
 )
 
-// ffprobeOutput maps the JSON output of ffprobe.
 type ffprobeOutput struct {
 	Streams []ffprobeStream `json:"streams"`
 	Format  ffprobeFormat   `json:"format"`
@@ -51,7 +50,6 @@ func (p *ffprobeOutput) toMetadata(mimeType string) store.Metadata {
 	return meta
 }
 
-// extractVideoMeta runs ffprobe to extract only video dimensions and duration.
 func extractVideoMeta(ctx context.Context, path string, mimeType string) (store.Metadata, error) {
 	args := []string{
 		"-v", "error",
@@ -75,8 +73,6 @@ func extractVideoMeta(ctx context.Context, path string, mimeType string) (store.
 	return probe.toMetadata(mimeType), nil
 }
 
-// generateThumbnail creates a bounded JPEG thumbnail from the first video stream.
-// Output: {path_without_ext}_thumb.jpg
 func generateThumbnail(ctx context.Context, path string) error {
 	ext := filepath.Ext(path)
 	thumbPath := strings.TrimSuffix(path, ext) + "_thumb.jpg"

@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// RateLimit implements a simple token-bucket rate limiter per IP.
-// Uses a map protected by sync.Mutex; sufficient for single-server deployment.
 func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Handler {
 	type bucket struct {
 		tokens   int
@@ -19,7 +17,6 @@ func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Hand
 		buckets = make(map[string]*bucket)
 	)
 
-	// Background cleanup: purge stale buckets every 5 minutes
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
@@ -46,7 +43,6 @@ func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Hand
 				buckets[ip] = b
 			}
 
-			// Refill tokens based on elapsed time
 			elapsed := time.Since(b.lastFill)
 			if elapsed >= window {
 				b.tokens = maxTokens

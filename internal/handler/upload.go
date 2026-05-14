@@ -17,7 +17,6 @@ import (
 
 const maxUploadBytes = 2 << 30 // 2 GiB
 
-// Upload handles multipart file uploads.
 // POST /api/upload
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)

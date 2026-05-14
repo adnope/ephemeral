@@ -10,10 +10,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// LoginPage renders the login form.
 // GET /login
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	// Check if setup is needed (no users exist yet)
 	count, err := h.users.Count(r.Context())
 	if err != nil {
 		h.log.Error("login: user count", "err", err)
@@ -21,7 +19,7 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"IsSetup": count == 0,
 		"Error":   r.URL.Query().Get("error"),
 	}
@@ -31,7 +29,6 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Login handles credential validation and session creation.
 // POST /login
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -47,7 +44,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if this is first-time setup
 	count, err := h.users.Count(r.Context())
 	if err != nil {
 		h.log.Error("login: user count", "err", err)
@@ -56,7 +52,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if count == 0 {
-		// First run: create the user account
 		hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 		if err != nil {
 			h.log.Error("login: hash password", "err", err)
@@ -75,7 +70,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Authenticate
 	user, err := h.users.GetByUsername(r.Context(), username)
 	if err != nil {
 		http.Redirect(w, r, "/login?error=invalid+credentials", http.StatusSeeOther)
@@ -87,7 +81,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate session token: 32 bytes of crypto/rand
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
 		h.log.Error("login: generate token", "err", err)
@@ -120,7 +113,6 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Logout invalidates the current session.
 // POST /logout
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("session_token")

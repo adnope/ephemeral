@@ -9,7 +9,6 @@ import (
 	"github.com/adnope/ephemeral/internal/store"
 )
 
-// Message handles simple text message submissions.
 // POST /message
 func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -37,7 +36,6 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 
 	h.broker.Broadcast(sse.Event{Type: "item:new", ID: id})
 
-	// Return the new item partial for HTMX swap
 	item.ID = id
 	item.CreatedAt = time.Now().UTC()
 	if err := h.tmpl.ExecuteTemplate(w, "item_partial", item); err != nil {

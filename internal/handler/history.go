@@ -27,7 +27,6 @@ type historyFilters struct {
 	HasDateTo   bool
 }
 
-// History serves the media gallery view.
 // GET /history
 func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
@@ -81,7 +80,7 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		nextCursor = items[len(items)-1].ID
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Items":      items,
 		"NextCursor": nextCursor,
 		"TypeFilter": strings.Join(types, ","),
@@ -170,7 +169,6 @@ func recentCutoff(value string, now time.Time) (time.Time, bool) {
 	}
 }
 
-// SearchItems handles the search endpoint.
 // GET /search?q=query
 func (h *Handler) SearchItems(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -186,7 +184,7 @@ func (h *Handler) SearchItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Items": items,
 		"Query": q,
 	}

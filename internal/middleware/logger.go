@@ -8,7 +8,6 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-// RequestLogger logs structured request information using slog.
 func RequestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

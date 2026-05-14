@@ -99,7 +99,6 @@ func (r *sqliteItemRepo) Search(ctx context.Context, q string, limit int) ([]*It
 		ORDER BY rank
 		LIMIT ?`
 
-	// Sanitize: prevent FTS5 injection via double-quote escaping
 	safe := strings.ReplaceAll(q, `"`, `""`)
 
 	rows, err := r.db.QueryContext(ctx, query, safe, limit)
@@ -116,9 +115,8 @@ func (r *sqliteItemRepo) MediaHistory(ctx context.Context, types []string, curso
 		types = []string{"image", "video", "file"}
 	}
 
-	// Build parameterized IN clause
 	placeholders := make([]string, len(types))
-	args := make([]interface{}, 0, len(types)+2)
+	args := make([]any, 0, len(types)+2)
 	for i, t := range types {
 		placeholders[i] = "?"
 		args = append(args, t)
@@ -154,8 +152,6 @@ func (r *sqliteItemRepo) UpdateMetadata(ctx context.Context, id int64, meta Meta
 	return nil
 }
 
-// scanItems extracts []*Item from sql.Rows, handling nullable columns.
-// modernc.org/sqlite returns DATETIME as string; we scan and parse manually.
 func scanItems(rows *sql.Rows) ([]*Item, error) {
 	var items []*Item
 	for rows.Next() {
@@ -177,7 +173,6 @@ func scanItems(rows *sql.Rows) ([]*Item, error) {
 	return items, rows.Err()
 }
 
-// parseSQLiteTime handles the multiple datetime formats SQLite may return.
 func parseSQLiteTime(s string) time.Time {
 	formats := []string{
 		"2006-01-02 15:04:05",

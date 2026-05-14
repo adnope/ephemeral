@@ -14,14 +14,12 @@ import (
 
 const workerCount = 1
 
-// Job represents a media extraction task.
 type Job struct {
 	ItemID   int64
 	FilePath string
 	MIMEType string
 }
 
-// Pool manages async media extraction workers.
 type Pool struct {
 	jobs   chan Job
 	repo   store.ItemRepository
@@ -29,7 +27,6 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-// NewPool creates and starts the media worker pool.
 func NewPool(repo store.ItemRepository, broker *sse.Broker) *Pool {
 	p := &Pool{
 		jobs:   make(chan Job, 16),
@@ -43,7 +40,6 @@ func NewPool(repo store.ItemRepository, broker *sse.Broker) *Pool {
 	return p
 }
 
-// Enqueue adds a media extraction job. Non-blocking; drops job if queue is full.
 func (p *Pool) Enqueue(job Job) {
 	select {
 	case p.jobs <- job:
@@ -52,7 +48,6 @@ func (p *Pool) Enqueue(job Job) {
 	}
 }
 
-// Shutdown gracefully drains the worker pool with a deadline.
 func (p *Pool) Shutdown(ctx context.Context) {
 	close(p.jobs)
 	done := make(chan struct{})

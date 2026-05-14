@@ -9,7 +9,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// ServeFile handles file downloads with path traversal protection.
 // GET /api/files/{path}
 func (h *Handler) ServeFile(w http.ResponseWriter, r *http.Request) {
 	relPath := chi.URLParam(r, "*")

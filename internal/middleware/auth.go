@@ -20,12 +20,9 @@ var publicPaths = map[string]struct{}{
 	"/manifest.json": {},
 }
 
-// SessionAuth enforces cookie-based session authentication.
-// Skips static assets and explicitly public paths.
 func SessionAuth(repo store.SessionRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Static assets bypass auth entirely
 			if strings.HasPrefix(r.URL.Path, "/static/") {
 				next.ServeHTTP(w, r)
 				return
@@ -54,7 +51,6 @@ func SessionAuth(repo store.SessionRepository) func(http.Handler) http.Handler {
 	}
 }
 
-// GetSession extracts the session from context. Returns nil if not authenticated.
 func GetSession(ctx context.Context) *store.Session {
 	s, _ := ctx.Value(ctxKeySession).(*store.Session)
 	return s

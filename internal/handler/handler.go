@@ -10,8 +10,6 @@ import (
 	"github.com/adnope/ephemeral/internal/store"
 )
 
-// Handler is the single dependency container passed to all route handlers.
-// Constructed once in main.go and never mutated after startup.
 type Handler struct {
 	store     store.ItemRepository
 	sessions  store.SessionRepository
@@ -24,7 +22,6 @@ type Handler struct {
 	bodyIndex *bodyindex.Indexer
 }
 
-// NewHandler creates a Handler with all dependencies injected.
 func NewHandler(
 	itemRepo store.ItemRepository,
 	sessionRepo store.SessionRepository,

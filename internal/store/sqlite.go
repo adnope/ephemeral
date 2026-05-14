@@ -9,19 +9,14 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// OpenDB initializes the SQLite database with performance-tuned PRAGMAs.
-// Migration SQL must be provided by the caller (embedded at the cmd level).
 func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("store.OpenDB: %w", err)
 	}
 
-	// Single writer connection to prevent SQLITE_BUSY under WAL mode.
-	// Reads are concurrent; writes are serialized by SQLite's WAL lock.
 	db.SetMaxOpenConns(1)
 
-	// Performance-tuned PRAGMAs applied at connection time
 	pragmas := []string{
 		"PRAGMA journal_mode = WAL",
 		"PRAGMA synchronous = NORMAL",
@@ -48,17 +43,14 @@ func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
 	return db, nil
 }
 
-// NewItemRepo creates a new SQLite-backed ItemRepository.
 func NewItemRepo(db *sql.DB) ItemRepository {
 	return &sqliteItemRepo{db: db}
 }
 
-// NewSessionRepo creates a new SQLite-backed SessionRepository.
 func NewSessionRepo(db *sql.DB) SessionRepository {
 	return &sqliteSessionRepo{db: db}
 }
 
-// NewUserRepo creates a new SQLite-backed UserRepository.
 func NewUserRepo(db *sql.DB) UserRepository {
 	return &sqliteUserRepo{db: db}
 }
