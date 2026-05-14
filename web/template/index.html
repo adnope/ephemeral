@@ -1,0 +1,178 @@
+{{define "index.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f0f13">
+    <meta name="description" content="LeanDrop - Instant text and file sync across devices">
+    <title>LeanDrop</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/app.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/static/app.min.js" defer></script>
+</head>
+<body class="app-body" x-data="leandrop()">
+<div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="logo">LeanDrop</h1>
+        </div>
+        <nav class="header-nav">
+            <a href="/" class="nav-link active" id="nav-chat">Chat</a>
+            <a href="/history" class="nav-link" id="nav-history">History</a>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="nav-link logout-btn" id="btn-logout">Logout</button>
+            </form>
+        </nav>
+    </header>
+
+    <!-- Chat Stream -->
+    <main class="chat-container"
+          @dragover.prevent="dragover = true"
+          @dragleave.prevent="dragover = false"
+          @drop.prevent="handleDrop($event)"
+          :class="{ 'drag-active': dragover }">
+
+        <div class="drag-overlay" x-show="dragover" x-transition>
+            <div class="drag-overlay-content">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <p>Drop file to upload</p>
+            </div>
+        </div>
+
+        <div id="chat-stream" class="chat-stream">
+            {{range .Items}}
+                {{template "item_partial" .}}
+            {{end}}
+
+            {{if .NextCursor}}
+            <div class="load-more"
+                 hx-get="/?cursor={{.NextCursor}}"
+                 hx-trigger="revealed"
+                 hx-target="#chat-stream"
+                 hx-swap="beforeend"
+                 hx-indicator=".loader">
+                <div class="loader"></div>
+            </div>
+            {{end}}
+        </div>
+
+        <!-- Upload Progress -->
+        <div class="upload-progress" x-show="uploading" x-transition>
+            <div class="upload-bar"></div>
+            <span>Uploading...</span>
+        </div>
+    </main>
+
+    <!-- Input Bar -->
+    <footer class="input-bar">
+        <form @submit="sendMessage($event)" class="input-form" id="message-form">
+            <label class="file-btn" for="file-input" id="btn-attach">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
+                </svg>
+            </label>
+            <input type="file" id="file-input" class="hidden" @change="handleFileSelect($event)">
+            <input type="text"
+                   x-ref="messageInput"
+                   class="message-input"
+                   placeholder="Type a message..."
+                   autocomplete="off"
+                   id="input-message">
+            <button type="submit" class="send-btn" id="btn-send">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
+        </form>
+    </footer>
+</div>
+
+<script>
+function leandrop() {
+    return {
+        uploading: false,
+        dragover: false,
+
+        init() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/sw.js');
+            }
+            this.connectSSE();
+        },
+
+        connectSSE() {
+            const es = new EventSource('/events');
+            es.addEventListener('item:new', () => {
+                htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
+            });
+            es.addEventListener('item:updated', () => {
+                htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
+            });
+            es.onerror = () => {
+                setTimeout(() => this.connectSSE(), 3000);
+            };
+        },
+
+        handleDrop(e) {
+            this.dragover = false;
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                this.uploadFile(files[0]);
+            }
+        },
+
+        handleFileSelect(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                this.uploadFile(files[0]);
+            }
+            e.target.value = '';
+        },
+
+        async uploadFile(file) {
+            this.uploading = true;
+            const form = new FormData();
+            form.append('file', file);
+            try {
+                const res = await fetch('/upload', { method: 'POST', body: form });
+                if (res.ok) {
+                    htmx.ajax('GET', '/', {target: '#chat-stream', swap: 'innerHTML'});
+                }
+            } catch(err) {
+                console.error('Upload failed:', err);
+            } finally {
+                this.uploading = false;
+            }
+        },
+
+        async sendMessage(e) {
+            e.preventDefault();
+            const input = this.$refs.messageInput;
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+
+            const form = new FormData();
+            form.append('text', text);
+            try {
+                await fetch('/message', { method: 'POST', body: form });
+            } catch(err) {
+                console.error('Send failed:', err);
+            }
+        }
+    }
+}
+</script>
+</body>
+</html>
+{{end}}

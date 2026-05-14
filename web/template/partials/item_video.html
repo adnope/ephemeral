@@ -1,0 +1,16 @@
+{{define "item_video"}}
+<div class="video-content">
+    <video controls preload="metadata" class="bubble-video">
+        <source src="/files/{{.Content}}" type="{{.Metadata.MIME}}">
+        Your browser does not support the video tag.
+    </video>
+    {{if .Filename}}
+    <div class="video-info">
+        <span class="video-filename">{{.Filename}}</span>
+        {{if .Metadata.Duration}}
+        <span class="video-duration">{{.Metadata.Duration}}</span>
+        {{end}}
+    </div>
+    {{end}}
+</div>
+{{end}}

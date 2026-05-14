@@ -1,0 +1,30 @@
+{{define "items_partial"}}
+{{range .Items}}
+    {{template "item_partial" .}}
+{{end}}
+{{if .NextCursor}}
+<div class="load-more"
+     hx-get="/?cursor={{.NextCursor}}"
+     hx-trigger="revealed"
+     hx-target="#chat-stream"
+     hx-swap="beforeend"
+     hx-indicator=".loader">
+    <div class="loader"></div>
+</div>
+{{end}}
+{{end}}
+
+{{define "item_partial"}}
+<div class="chat-bubble bubble-{{.Type}}" id="item-{{.ID}}">
+    {{if eq .Type "text"}}
+        {{template "item_text" .}}
+    {{else if eq .Type "image"}}
+        {{template "item_image" .}}
+    {{else if eq .Type "video"}}
+        {{template "item_video" .}}
+    {{else}}
+        {{template "item_file" .}}
+    {{end}}
+    <time class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</time>
+</div>
+{{end}}

@@ -1,0 +1,30 @@
+{{define "item_image"}}
+<div class="image-content" x-data="{ open: false }">
+    <img src="/files/{{.Content}}"
+         alt="{{.Filename}}"
+         class="bubble-image"
+         loading="lazy"
+         @click="open = true"
+         {{if .Metadata.Width}}width="{{.Metadata.Width}}"{{end}}
+         {{if .Metadata.Height}}height="{{.Metadata.Height}}"{{end}}>
+
+    <!-- Full-res dialog -->
+    <dialog class="image-dialog" x-ref="dialog"
+            x-show="open"
+            @click.self="open = false"
+            x-effect="open ? $refs.dialog.showModal() : $refs.dialog.close()">
+        <div class="dialog-content">
+            <img src="/files/{{.Content}}" alt="{{.Filename}}" class="dialog-image">
+            <button class="dialog-close" @click="open = false">&times;</button>
+            {{if .Filename}}
+            <div class="dialog-info">
+                <span class="dialog-filename">{{.Filename}}</span>
+                {{if .Metadata.Width}}
+                <span class="dialog-dimensions">{{.Metadata.Width}} x {{.Metadata.Height}}</span>
+                {{end}}
+            </div>
+            {{end}}
+        </div>
+    </dialog>
+</div>
+{{end}}

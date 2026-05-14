@@ -1,0 +1,91 @@
+{{define "history.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f0f13">
+    <meta name="description" content="LeanDrop - Media History">
+    <title>LeanDrop - History</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="/static/app.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="/static/app.min.js" defer></script>
+</head>
+<body class="app-body">
+<div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1 class="logo">LeanDrop</h1>
+        </div>
+        <nav class="header-nav">
+            <a href="/" class="nav-link" id="nav-chat">Chat</a>
+            <a href="/history" class="nav-link active" id="nav-history">History</a>
+            <form method="POST" action="/logout" style="display:inline">
+                <button type="submit" class="nav-link logout-btn" id="btn-logout">Logout</button>
+            </form>
+        </nav>
+    </header>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <a href="/history" class="filter-chip {{if not .TypeFilter}}active{{end}}">All</a>
+        <a href="/history?type=image" class="filter-chip {{if eq .TypeFilter "image"}}active{{end}}">Images</a>
+        <a href="/history?type=video" class="filter-chip {{if eq .TypeFilter "video"}}active{{end}}">Videos</a>
+        <a href="/history?type=file" class="filter-chip {{if eq .TypeFilter "file"}}active{{end}}">Files</a>
+    </div>
+
+    <!-- Gallery Grid -->
+    <main class="gallery-container">
+        <div id="gallery-grid" class="gallery-grid">
+            {{template "history_items" .}}
+        </div>
+    </main>
+</div>
+</body>
+</html>
+{{end}}
+
+{{define "history_items"}}
+{{range .Items}}
+<div class="gallery-item gallery-{{.Type}}">
+    {{if eq .Type "image"}}
+    <a href="/files/{{.Content}}" target="_blank">
+        <img src="/files/{{.Content}}" alt="{{.Filename}}" loading="lazy" class="gallery-thumb">
+    </a>
+    {{else if eq .Type "video"}}
+    <a href="/files/{{.Content}}" target="_blank" class="gallery-video-link">
+        <div class="gallery-video-play">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+            </svg>
+        </div>
+        {{if .Metadata.Duration}}
+        <span class="gallery-duration">{{.Metadata.Duration}}</span>
+        {{end}}
+    </a>
+    {{else}}
+    <a href="/files/{{.Content}}" download="{{.Filename}}" class="gallery-file-link">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span class="gallery-file-name">{{.Filename}}</span>
+    </a>
+    {{end}}
+</div>
+{{end}}
+{{if .NextCursor}}
+<div class="load-more"
+     hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{.TypeFilter}}{{end}}"
+     hx-trigger="revealed"
+     hx-target="#gallery-grid"
+     hx-swap="beforeend"
+     hx-indicator=".loader">
+    <div class="loader"></div>
+</div>
+{{end}}
+{{end}}
