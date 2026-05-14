@@ -4,30 +4,120 @@
   <head>
     <title>Ephemeral - Login</title>
     <link rel="stylesheet" href="/static/app.css" />
-    <link rel="icon" href="/static/favicon.ico" sizes="any" />
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/static/icon-192.png" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="192x192"
+      href="/static/icon-192.png"
+    />
     <link rel="manifest" href="/static/manifest.json" />
   </head>
-  <body>
-    <main>
-      <h1>Ephemeral Login</h1>
-      {{if .IsSetup}}
-      <p>First time setup: Create your account.</p>
-      {{end}} {{if .Error}}
-      <p style="color: red">{{.Error}}</p>
-      {{end}}
 
-      <form method="POST" action="/api/login">
-        <label>Username:</label><br />
-        <input type="text" name="username" required /><br />
+  <body class="login-page">
+    <main class="login-card">
+      <div class="login-brand">
+        <img
+          src="/static/icon-192.png"
+          alt="Ephemeral logo"
+          class="login-logo"
+          onerror="this.style.display = 'none'"
+        />
 
-        <label>Password:</label><br />
-        <input type="password" name="password" required /><br />
+        <h1 class="login-title">Ephemeral</h1>
 
-        <button type="submit">Submit</button>
+        {{if .IsSetup}}
+        <p class="login-subtitle">Create your first account</p>
+        {{else}}
+        <p class="login-subtitle">Sign in to continue</p>
+        {{end}}
+      </div>
+
+      <form method="POST" action="/api/login" class="login-form">
+        <label class="login-field">
+          <span>Username</span>
+          <input
+            type="text"
+            name="username"
+            autocomplete="username"
+            required
+            autofocus
+          />
+        </label>
+
+        <label class="login-field">
+          <span>Password</span>
+
+          <div class="login-password-wrap">
+            <input
+              id="loginPassword"
+              type="password"
+              name="password"
+              autocomplete="{{if .IsSetup}}new-password{{else}}current-password{{end}}"
+              required
+            />
+
+            <button
+              type="button"
+              class="login-password-toggle"
+              aria-label="Reveal password"
+              aria-pressed="false"
+              onclick="toggleLoginPassword(this)"
+            >
+              <svg
+                class="login-eye-icon login-eye-open"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                aria-hidden="true"
+              >
+                <path
+                  d="M480-320q75 0 127.5-52.5T660-500q0-75-52.5-127.5T480-680q-75 0-127.5 52.5T300-500q0 75 52.5 127.5T480-320Zm0-72q-45 0-76.5-31.5T372-500q0-45 31.5-76.5T480-608q45 0 76.5 31.5T588-500q0 45-31.5 76.5T480-392Zm0 192q-146 0-266-81.5T40-500q54-137 174-218.5T480-800q146 0 266 81.5T920-500q-54 137-174 218.5T480-200Z"
+                />
+              </svg>
+
+              <svg
+                class="login-eye-icon login-eye-closed"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 -960 960 960"
+                aria-hidden="true"
+              >
+                <path
+                  d="m644-428-58-58q9-47-27-88t-89-32l-58-58q17-8 34-12t34-4q75 0 127.5 52.5T660-500q0 18-4 36t-12 36ZM792-280l-58-56q41-31 74-72.5t56-91.5q-50-111-150-175.5T480-740q-35 0-69 5t-67 17l-62-62q47-20 96.5-30T480-820q146 0 266 81.5T920-500q-28 72-78 128.5T792-280Zm-312 80q-146 0-266-81.5T40-500q22-56 58-104t82-84L56-812l56-56 736 736-56 56-138-136q-42 18-86 25t-88 7Zm-240-432q-32 25-58 58.5T136-500q50 111 150 175.5T520-260q23 0 45.5-2.5T610-270l-84-84q-11 5-22.5 7.5T480-344q-75 0-127.5-52.5T300-524q0-12 2.5-23.5T310-570l-70-62Z"
+                />
+              </svg>
+            </button>
+          </div>
+        </label>
+
+        <button type="submit" class="login-submit">
+          {{if .IsSetup}}Create account{{else}}Login{{end}}
+        </button>
+
+        {{if .Error}}
+        <div class="login-error" role="alert">{{.Error}}</div>
+        {{end}}
       </form>
     </main>
+
+    <script>
+      function toggleLoginPassword(button) {
+        const input = document.getElementById("loginPassword");
+        if (!(input instanceof HTMLInputElement)) return;
+
+        const shouldShow = input.type === "password";
+        input.type = shouldShow ? "text" : "password";
+        button.classList.toggle("is-visible", shouldShow);
+        button.setAttribute("aria-pressed", shouldShow.toString());
+        button.setAttribute(
+          "aria-label",
+          shouldShow ? "Hide password" : "Reveal password",
+        );
+      }
+    </script>
+    {{if .Error}}
+    <script>
+      window.history.replaceState({}, document.title, "/login");
+    </script>
+    {{end}}
   </body>
 </html>
 {{end}}
