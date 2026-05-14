@@ -29,6 +29,7 @@
 }
 
 body {
+  min-height: 100dvh;
   display: flex;
   justify-content: center;
   margin: 0;
@@ -72,7 +73,7 @@ input[type="password"] {
 .chat-app {
   width: 100%;
   max-width: var(--app-width);
-  height: 90vh;
+  height: calc(100dvh - 40px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -426,9 +427,12 @@ main {
 }
 
 dialog.media-dialog {
-  max-width: 95vw;
-  max-height: 95vh;
-  padding: 15px;
+  width: min(96vw, 1200px);
+  height: min(96vh, 900px);
+  max-width: 96vw;
+  max-height: 96vh;
+  padding: 12px;
+  overflow: hidden;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
 }
@@ -436,8 +440,36 @@ dialog.media-dialog {
 dialog.media-dialog[open] {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+}
+
+.media-dialog-actions,
+.media-dialog-nav,
+.media-dialog-title,
+.media-dialog-meta {
+  flex: 0 0 auto;
+}
+
+.media-dialog-img,
+.media-dialog-video {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  object-fit: contain;
+  align-self: center;
+}
+
+.media-dialog-img {
+  width: 100%;
+  height: 100%;
+}
+
+.media-dialog-video {
+  width: 100%;
+  height: 100%;
+  margin-top: 0;
 }
 
 dialog::backdrop {
@@ -446,7 +478,7 @@ dialog::backdrop {
 
 .media-dialog-actions {
   align-self: stretch;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -455,27 +487,18 @@ dialog::backdrop {
   width: 100%;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .media-dialog-title {
-  max-width: 60%;
+  width: 100%;
+  max-width: min(90vw, 640px);
+  align-self: center;
   overflow: hidden;
   font-weight: 600;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.media-dialog-img,
-.media-dialog-video {
-  display: block;
-}
-
-.media-dialog-video {
-  max-width: 90vw;
-  max-height: 80vh;
-  margin-top: 10px;
 }
 
 .drag-overlay {
@@ -604,4 +627,253 @@ dialog::backdrop {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
+}
+
+[x-cloak] {
+  display: none !important;
+}
+
+.app-layout {
+  width: 100%;
+  max-width: var(--app-width);
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.upload-queue {
+  position: fixed;
+  right: 12px;
+  bottom: 20px;
+  z-index: 20;
+  width: min(360px, calc(100vw - 24px));
+  max-width: 360px;
+  overflow: hidden;
+  border: 1px solid #d0d7de;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.upload-queue-header {
+  width: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  padding: 0;
+  background: var(--color-surface);
+}
+
+.upload-queue-toggle {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.upload-queue-toggle:hover,
+.upload-queue-close:hover {
+  background: var(--color-hover);
+}
+
+.upload-queue-close {
+  width: 36px;
+  flex: 0 0 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.upload-queue-close:hover {
+  color: var(--color-danger);
+}
+
+.upload-queue-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 700;
+}
+
+.upload-queue-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-queue-summary,
+.upload-queue-collapsed-meta,
+.upload-item-meta,
+.upload-item-percent {
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+  font-weight: 400;
+}
+
+.upload-queue-chevron {
+  color: var(--color-text-muted);
+  font-size: 10px;
+}
+
+.upload-queue-overall,
+.upload-item-progress {
+  overflow: hidden;
+  background: #eaeef2;
+}
+
+.upload-queue-overall {
+  height: 4px;
+}
+
+.upload-item-progress {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+}
+
+.upload-progress-fill {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-link);
+  transition: width 150ms ease;
+}
+
+.upload-progress-fill.is-done {
+  background: #1a7f37;
+}
+
+.upload-progress-fill.is-failed {
+  background: var(--color-danger);
+}
+
+.upload-queue-collapsed-meta {
+  display: flex;
+  gap: 4px;
+  padding: 8px 12px 10px;
+}
+
+.upload-queue-body {
+  max-height: min(420px, 45vh);
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.upload-queue-item {
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.upload-queue-item + .upload-queue-item {
+  margin-top: 8px;
+}
+
+.upload-item-main {
+  min-width: 0;
+}
+
+.upload-item-name {
+  min-width: 0;
+  overflow: visible;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.upload-item-meta {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.upload-item-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.upload-item-percent {
+  width: 34px;
+  text-align: right;
+}
+
+.upload-item-error {
+  margin-top: 6px;
+  color: var(--color-danger);
+  font-size: 0.85em;
+}
+
+.upload-item-actions,
+.upload-queue-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.upload-action-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-link);
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.upload-action-link:hover {
+  text-decoration: underline;
+}
+
+.upload-queue-footer {
+  padding: 6px 2px 2px;
+}
+
+@media (max-width: 980px) {
+  .upload-queue {
+    left: 10px;
+    right: 10px;
+    bottom: 76px;
+    width: auto;
+    max-width: none;
+  }
+
+  .upload-queue-body {
+    max-height: min(360px, 45vh);
+  }
+}
+
+.media-dialog-meta {
+  width: 100%;
+  max-width: min(90vw, 640px);
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: -4px auto 10px;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+  text-align: center;
 }

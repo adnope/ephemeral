@@ -7,85 +7,205 @@
     <script src="/static/app.min.js" defer></script>
   </head>
   <body x-data="ephemeral()">
-    <div
-      class="chat-app"
-      @dragover.prevent="dragover = true"
-      @dragleave.prevent="dragover = false"
-      @drop.prevent="handleDrop"
-    >
-      <div x-show="dragover" class="drag-overlay" style="display: none">
-        Drop file here to upload
+    <div class="app-layout">
+      <div
+        class="chat-app"
+        @dragover.prevent="dragover = true"
+        @dragleave.prevent="dragover = false"
+        @drop.prevent="handleDrop"
+      >
+        <div x-show="dragover" class="drag-overlay" style="display: none">
+          Drop file here to upload
+        </div>
+
+        <header>
+          <h1>Ephemeral</h1>
+          <nav class="top-nav" aria-label="Primary navigation">
+            <div class="top-nav-links">
+              <a href="/" class="top-nav-link is-active">Chat</a>
+              <a href="/history" class="top-nav-link">History</a>
+            </div>
+
+            <form method="POST" action="/api/logout" class="top-nav-logout">
+              <button type="submit" class="top-nav-logout-btn">Logout</button>
+            </form>
+          </nav>
+        </header>
+
+        <main id="chat-stream">
+          {{range .Items}} {{template "item_partial" .}} {{end}} {{if
+          .NextCursor}}
+          <div class="load-more-row">
+            <button
+              type="button"
+              class="load-more-btn"
+              hx-get="/?cursor={{.NextCursor}}"
+              hx-trigger="click"
+              hx-target="closest .load-more-row"
+              hx-swap="outerHTML"
+            >
+              Load older messages
+            </button>
+          </div>
+          {{end}}
+        </main>
+
+        <footer>
+          <form @submit.prevent="sendMessage" class="input-form">
+            <label class="composer-icon-btn" aria-label="Attach files">
+              <img src="/static/attachment.svg" alt="" class="composer-icon" />
+              <input
+                type="file"
+                multiple
+                @change="handleFileSelect"
+                @cancel="$el.blur()"
+                @click="$el.blur()"
+                class="visually-hidden-file-input"
+              />
+            </label>
+
+            <textarea
+              x-ref="messageInput"
+              x-model="message"
+              placeholder="Type message..."
+              class="input-text composer-input"
+              @input="resize($el)"
+              @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else { message += '\n'; $nextTick(() => resize($el)); }"
+              rows="1"
+            ></textarea>
+
+            <button
+              type="submit"
+              class="composer-send-btn"
+              aria-label="Send message"
+            >
+              &#10148;
+            </button>
+          </form>
+        </footer>
       </div>
 
-      <header>
-        <h1>Ephemeral</h1>
-        <nav class="top-nav" aria-label="Primary navigation">
-          <div class="top-nav-links">
-            <a href="/" class="top-nav-link is-active">Chat</a>
-            <a href="/history" class="top-nav-link">History</a>
-          </div>
-
-          <form method="POST" action="/api/logout" class="top-nav-logout">
-            <button type="submit" class="top-nav-logout-btn">Logout</button>
-          </form>
-        </nav>
-      </header>
-
-      <main id="chat-stream">
-        {{range .Items}} {{template "item_partial" .}} {{end}} {{if
-        .NextCursor}}
-        <div class="load-more-row">
+      <section
+        x-cloak
+        x-show="hasUploads"
+        class="upload-queue"
+        :class="{ 'is-collapsed': uploadQueueCollapsed }"
+        aria-label="Upload queue"
+      >
+        <div class="upload-queue-header">
           <button
             type="button"
-            class="load-more-btn"
-            hx-get="/?cursor={{.NextCursor}}"
-            hx-trigger="click"
-            hx-target="closest .load-more-row"
-            hx-swap="outerHTML"
+            class="upload-queue-toggle"
+            @click="uploadQueueCollapsed = !uploadQueueCollapsed"
+            :aria-expanded="(!uploadQueueCollapsed).toString()"
           >
-            Load older messages
+            <div class="upload-queue-title">
+              <span>Uploads</span>
+              <span
+                class="upload-queue-summary"
+                x-text="uploadQueueSummary"
+              ></span>
+            </div>
+
+            <span
+              class="upload-queue-chevron"
+              x-text="uploadQueueCollapsed ? '▲' : '▼'"
+              aria-hidden="true"
+            ></span>
           </button>
-        </div>
-        {{end}}
-      </main>
-
-      <footer>
-        <form @submit.prevent="sendMessage" class="input-form">
-          <label class="composer-icon-btn" aria-label="Attach files">
-            <img src="/static/attachment.svg" alt="" class="composer-icon" />
-            <input
-              type="file"
-              multiple
-              @change="handleFileSelect"
-              @cancel="$el.blur()"
-              @click="$el.blur()"
-              class="visually-hidden-file-input"
-            />
-          </label>
-
-          <textarea
-            x-ref="messageInput"
-            x-model="message"
-            placeholder="Type message..."
-            class="input-text composer-input"
-            @input="resize($el)"
-            @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else { message += '\n'; $nextTick(() => resize($el)); }"
-            rows="1"
-          ></textarea>
 
           <button
-            type="submit"
-            class="composer-send-btn"
-            aria-label="Send message"
+            type="button"
+            class="upload-queue-close"
+            aria-label="Close upload queue"
+            @click="closeUploadQueue"
           >
-            &#10148;
+            ×
           </button>
-        </form>
+        </div>
 
-        <span x-show="uploading" class="upload-status" style="display: none">
-          Uploading file...
-        </span>
-      </footer>
+        <div class="upload-queue-overall">
+          <div
+            class="upload-progress-fill"
+            :style="`width: ${overallUploadProgress}%`"
+          ></div>
+        </div>
+
+        <div class="upload-queue-collapsed-meta" x-show="uploadQueueCollapsed">
+          <span x-text="formatBytes(uploadedBytes)"></span>
+          <span>/</span>
+          <span x-text="formatBytes(totalUploadBytes)"></span>
+          <span>·</span>
+          <span x-text="`${overallUploadProgress}%`"></span>
+        </div>
+
+        <div class="upload-queue-body" x-show="!uploadQueueCollapsed">
+          <template x-for="upload in uploads" :key="upload.id">
+            <article class="upload-queue-item">
+              <div class="upload-item-main">
+                <div class="upload-item-name" x-text="upload.name"></div>
+                <div class="upload-item-meta">
+                  <span x-text="formatBytes(upload.size)"></span>
+                  <span>·</span>
+                  <span x-text="statusLabel(upload)"></span>
+                </div>
+              </div>
+
+              <div class="upload-item-progress-row">
+                <div class="upload-item-progress">
+                  <div
+                    class="upload-progress-fill"
+                    :class="{ 'is-failed': upload.status === 'failed', 'is-done': upload.status === 'done' }"
+                    :style="`width: ${upload.progress}%`"
+                  ></div>
+                </div>
+
+                <span
+                  class="upload-item-percent"
+                  x-text="`${upload.progress}%`"
+                ></span>
+              </div>
+
+              <div
+                class="upload-item-error"
+                x-show="upload.status === 'failed'"
+                x-text="upload.error"
+              ></div>
+
+              <div class="upload-item-actions">
+                <button
+                  type="button"
+                  class="upload-action-link"
+                  x-show="upload.status === 'queued' || upload.status === 'uploading'"
+                  @click="cancelUpload(upload)"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  class="upload-action-link"
+                  x-show="upload.status === 'failed' || upload.status === 'canceled'"
+                  @click="retryUpload(upload)"
+                >
+                  Retry
+                </button>
+              </div>
+            </article>
+          </template>
+
+          <div class="upload-queue-footer">
+            <button
+              type="button"
+              class="upload-action-link"
+              @click="clearFinishedUploads"
+              x-show="hasFinishedUploads"
+            >
+              Clear completed
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <dialog x-ref="videoPlayerDialog" class="media-dialog" tabindex="-1">
@@ -100,6 +220,20 @@
 
       <div class="media-dialog-title" x-text="activeVideoName"></div>
 
+      <div class="media-dialog-meta">
+        <span x-text="activeVideoSize"></span>
+
+        <template x-if="activeVideoResolution">
+          <span>·</span>
+        </template>
+        <template x-if="activeVideoResolution">
+          <span x-text="activeVideoResolution"></span>
+        </template>
+
+        <span>·</span>
+        <span x-text="activeVideoDate"></span>
+      </div>
+
       <video
         x-ref="videoPlayer"
         controls
@@ -113,12 +247,74 @@
     <script>
       function ephemeral() {
         return {
-          uploading: false,
           dragover: false,
           message: "",
           activeVideoUrl: "",
           activeVideoName: "",
           activeVideoMime: "",
+          activeVideoSize: "",
+          activeVideoDate: "",
+          activeVideoResolution: "",
+
+          uploads: [],
+          uploadSeq: 0,
+          activeUploads: 0,
+          maxConcurrentUploads: 1,
+          uploadQueueCollapsed: false,
+
+          get hasUploads() {
+            return this.uploads.length > 0;
+          },
+
+          get totalUploadBytes() {
+            return this.uploads.reduce((sum, upload) => sum + upload.total, 0);
+          },
+
+          get uploadedBytes() {
+            return this.uploads.reduce((sum, upload) => sum + upload.loaded, 0);
+          },
+
+          get overallUploadProgress() {
+            if (this.totalUploadBytes === 0) return 0;
+            return Math.round(
+              (this.uploadedBytes / this.totalUploadBytes) * 100,
+            );
+          },
+
+          get hasFinishedUploads() {
+            return this.uploads.some((upload) =>
+              ["done", "failed", "canceled"].includes(upload.status),
+            );
+          },
+
+          get uploadQueueSummary() {
+            const total = this.uploads.length;
+            const done = this.uploads.filter((u) => u.status === "done").length;
+            const failed = this.uploads.filter(
+              (u) => u.status === "failed",
+            ).length;
+            const uploading = this.uploads.filter(
+              (u) => u.status === "uploading",
+            ).length;
+
+            if (uploading > 0) {
+              return `${uploading} uploading · ${this.formatBytes(
+                this.totalUploadBytes,
+              )}`;
+            }
+
+            if (failed > 0) {
+              return `${failed} failed · ${done}/${total} done`;
+            }
+
+            if (done === total && total > 0) {
+              return `${total} completed · ${this.formatBytes(
+                this.totalUploadBytes,
+              )}`;
+            }
+
+            return `${total} files · ${this.formatBytes(this.totalUploadBytes)}`;
+          },
 
           init() {
             const es = new EventSource("/api/events");
@@ -138,50 +334,181 @@
             es.addEventListener("item:updated", refreshChat);
           },
 
-          async handleDrop(e) {
+          handleDrop(e) {
             this.dragover = false;
-            const files = e.dataTransfer.files;
-            if (!files || files.length === 0) return;
-
-            for (let i = 0; i < files.length; i++) {
-              await this.uploadFile(files[i]);
-            }
+            this.enqueueFiles(e.dataTransfer.files);
           },
 
-          async handleFileSelect(e) {
+          handleFileSelect(e) {
             const input = e.target;
-            const files = input.files;
 
             try {
-              if (!files || files.length === 0) return;
-
-              for (let i = 0; i < files.length; i++) {
-                await this.uploadFile(files[i]);
-              }
+              this.enqueueFiles(input.files);
             } finally {
               input.value = "";
               input.blur();
             }
           },
 
-          async uploadFile(file) {
-            this.uploading = true;
+          enqueueFiles(fileList) {
+            const files = Array.from(fileList || []);
+            if (files.length === 0) return;
 
-            try {
-              const form = new FormData();
-              form.append("file", file);
-
-              const response = await fetch("/api/upload", {
-                method: "POST",
-                body: form,
+            for (const file of files) {
+              this.uploads.push({
+                id: ++this.uploadSeq,
+                file,
+                name: file.name,
+                size: file.size,
+                loaded: 0,
+                total: file.size,
+                progress: 0,
+                status: "queued",
+                error: "",
+                xhr: null,
               });
-
-              if (!response.ok) {
-                throw new Error(`upload failed: ${response.status}`);
-              }
-            } finally {
-              this.uploading = false;
             }
+
+            this.uploadQueueCollapsed = false;
+            this.processUploadQueue();
+          },
+
+          processUploadQueue() {
+            while (this.activeUploads < this.maxConcurrentUploads) {
+              const next = this.uploads.find(
+                (upload) => upload.status === "queued",
+              );
+              if (!next) return;
+
+              this.startUpload(next);
+            }
+          },
+
+          startUpload(upload) {
+            upload.status = "uploading";
+            upload.error = "";
+            upload.loaded = 0;
+            upload.progress = 0;
+
+            this.activeUploads += 1;
+
+            const form = new FormData();
+            form.append("file", upload.file);
+
+            const xhr = new XMLHttpRequest();
+            upload.xhr = xhr;
+
+            xhr.upload.onprogress = (event) => {
+              if (!event.lengthComputable) return;
+
+              upload.loaded = event.loaded;
+              upload.total = event.total || upload.size;
+              upload.progress = Math.min(
+                99,
+                Math.round((event.loaded / upload.total) * 100),
+              );
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                upload.loaded = upload.total;
+                upload.progress = 100;
+                upload.status = "done";
+              } else {
+                upload.status = "failed";
+                upload.error = `Upload failed with HTTP ${xhr.status}`;
+              }
+
+              this.finishUpload(upload);
+            };
+
+            xhr.onerror = () => {
+              upload.status = "failed";
+              upload.error = "Network error";
+              this.finishUpload(upload);
+            };
+
+            xhr.onabort = () => {
+              upload.status = "canceled";
+              upload.error = "";
+              this.finishUpload(upload);
+            };
+
+            xhr.open("POST", "/api/upload");
+            xhr.send(form);
+          },
+
+          finishUpload(upload) {
+            upload.xhr = null;
+            this.activeUploads = Math.max(0, this.activeUploads - 1);
+            this.processUploadQueue();
+          },
+
+          cancelUpload(upload) {
+            if (upload.status === "queued") {
+              upload.status = "canceled";
+              upload.loaded = 0;
+              upload.progress = 0;
+              return;
+            }
+
+            if (upload.status === "uploading" && upload.xhr) {
+              upload.xhr.abort();
+            }
+          },
+
+          retryUpload(upload) {
+            if (!["failed", "canceled"].includes(upload.status)) return;
+
+            upload.loaded = 0;
+            upload.total = upload.size;
+            upload.progress = 0;
+            upload.error = "";
+            upload.status = "queued";
+            this.processUploadQueue();
+          },
+
+          clearFinishedUploads() {
+            this.uploads = this.uploads.filter(
+              (upload) =>
+                upload.status === "queued" || upload.status === "uploading",
+            );
+          },
+
+          statusLabel(upload) {
+            switch (upload.status) {
+              case "queued":
+                return "Queued";
+              case "uploading":
+                return "Uploading";
+              case "done":
+                return "Done";
+              case "failed":
+                return "Failed";
+              case "canceled":
+                return "Canceled";
+              default:
+                return upload.status;
+            }
+          },
+
+          formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+
+            const units = ["B", "KB", "MB", "GB", "TB"];
+            let value = bytes;
+            let unitIndex = 0;
+
+            while (value >= 1024 && unitIndex < units.length - 1) {
+              value /= 1024;
+              unitIndex += 1;
+            }
+
+            if (unitIndex === 0) {
+              return `${Math.round(value)} ${units[unitIndex]}`;
+            }
+
+            return `${value.toFixed(1)} ${units[unitIndex]}`;
           },
 
           async sendMessage() {
@@ -214,6 +541,9 @@
             this.activeVideoUrl = el.dataset.videoUrl || "";
             this.activeVideoMime = el.dataset.videoMime || "video/mp4";
             this.activeVideoName = el.dataset.videoName || "video";
+            this.activeVideoSize = el.dataset.videoSize || "";
+            this.activeVideoDate = el.dataset.videoDate || "";
+            this.activeVideoResolution = el.dataset.videoResolution || "";
 
             if (!this.activeVideoUrl) return;
 
@@ -252,6 +582,19 @@
             if (dialog instanceof HTMLDialogElement && dialog.open) {
               dialog.close();
             }
+          },
+
+          closeUploadQueue() {
+            const hasActiveUploads = this.uploads.some((upload) =>
+              ["queued", "uploading"].includes(upload.status),
+            );
+
+            if (hasActiveUploads) {
+              this.uploadQueueCollapsed = true;
+              return;
+            }
+
+            this.uploads = [];
           },
 
           resize(el) {

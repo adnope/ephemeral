@@ -49,6 +49,9 @@
   data-video-url="{{fileURL .Content}}"
   data-video-mime="{{.Metadata.MIME}}"
   data-video-name="{{.Filename}}"
+  data-video-size="{{formatSize .Filesize}}"
+  data-video-date='{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}'
+  data-video-resolution="{{if and .Metadata.Width .Metadata.Height}}{{.Metadata.Width}} × {{.Metadata.Height}}{{end}}"
   @click="openVideoPlayer($el)"
   @keydown.enter.prevent="openVideoPlayer($el)"
   @keydown.space.prevent="openVideoPlayer($el)"
@@ -69,6 +72,9 @@
   data-video-url="{{fileURL .Content}}"
   data-video-mime="{{.Metadata.MIME}}"
   data-video-name="{{.Filename}}"
+  data-video-size="{{formatSize .Filesize}}"
+  data-video-date='{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}'
+  data-video-resolution="{{if and .Metadata.Width .Metadata.Height}}{{.Metadata.Width}} × {{.Metadata.Height}}{{end}}"
   @click="openVideoPlayer($el)"
   @keydown.enter.prevent="openVideoPlayer($el)"
   @keydown.space.prevent="openVideoPlayer($el)"
@@ -78,7 +84,19 @@
   <span class="video-placeholder-play">&#9654;</span>
   <span>Video</span>
 </div>
-{{end}} {{end}} {{define "media_scripts"}}
+{{end}} {{end}} {{define "media_dialog_meta"}}
+<div class="media-dialog-meta">
+  <span>{{formatSize .Filesize}}</span>
+
+  {{if and .Metadata.Width .Metadata.Height}}
+  <span>·</span>
+  <span>{{.Metadata.Width}} × {{.Metadata.Height}}</span>
+  {{end}}
+
+  <span>·</span>
+  <span>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</span>
+</div>
+{{end}} {{define "media_scripts"}}
 <script>
   window.openMediaDialog = function (dialog) {
     if (!(dialog instanceof HTMLDialogElement)) return;
@@ -124,23 +142,6 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       window.navigateMedia(dialog, -1);
-    }
-  };
-
-  window.fitMediaElement = function (element) {
-    const mediaWidth = element.naturalWidth || element.videoWidth;
-    const mediaHeight = element.naturalHeight || element.videoHeight;
-    if (!mediaWidth || !mediaHeight) return;
-
-    const mediaRatio = mediaWidth / mediaHeight;
-    const screenRatio = (window.innerWidth * 0.9) / (window.innerHeight * 0.85);
-
-    if (mediaRatio > screenRatio) {
-      element.style.width = "90vw";
-      element.style.height = "auto";
-    } else {
-      element.style.height = "85vh";
-      element.style.width = "auto";
     }
   };
 </script>

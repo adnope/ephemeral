@@ -69,13 +69,12 @@
     @keydown.window="handleMediaDialogKeydown($event, $el)"
   >
     {{template "media_dialog_actions" .}} {{template "media_dialog_nav_history"
-    .}}
+    .}} {{template "media_dialog_meta" .}}
 
     <img
       src="{{fileURL .Content}}"
       alt="{{.Filename}}"
       class="media-dialog-img"
-      onload="fitMediaElement(this)"
     />
   </dialog>
 
@@ -95,7 +94,7 @@
     @keydown.window="handleMediaDialogKeydown($event, $el)"
   >
     {{template "media_dialog_actions" .}} {{template "media_dialog_nav_history"
-    .}}
+    .}} {{template "media_dialog_meta" .}}
 
     <video
       controls
@@ -104,7 +103,6 @@
       .Metadata.Thumb}}poster="{{fileURL .Metadata.Thumb}}"
       {{end}}
       class="media-dialog-video"
-      onloadedmetadata="fitMediaElement(this)"
     >
       <source src="{{fileURL .Content}}" type="{{.Metadata.MIME}}" />
     </video>
