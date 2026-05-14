@@ -23,27 +23,111 @@
       </header>
 
       <main class="history-main">
+        <form method="GET" action="/history" class="history-search-form">
+          {{if .TypeFilter}}
+          <input type="hidden" name="type" value="{{.TypeFilter}}" />
+          {{end}}
+
+          <div class="history-search-row">
+            <input
+              type="search"
+              name="q"
+              value="{{.Query}}"
+              class="history-search-input"
+              placeholder="Search filenames, e.g. report.pdf"
+              autocomplete="off"
+            />
+
+            <button type="submit" class="history-search-btn">Search</button>
+
+            {{if or .Query .SearchBody .DateFrom .DateTo .Recent}}
+            <a
+              href="/history{{if .TypeFilter}}?type={{queryEscape .TypeFilter}}{{end}}"
+              class="history-search-clear"
+            >
+              Clear
+            </a>
+            {{end}}
+          </div>
+
+          <div class="history-search-date-row">
+            <label class="history-search-date-field">
+              <span>From</span>
+              <input type="date" name="from" value="{{.DateFrom}}" />
+            </label>
+
+            <label class="history-search-date-field">
+              <span>To</span>
+              <input type="date" name="to" value="{{.DateTo}}" />
+            </label>
+
+            <label class="history-search-date-field">
+              <span>Recent</span>
+              <select name="recent">
+                <option value="" {{if not .Recent}}selected{{end}}>
+                  Any time
+                </option>
+                <option value="1d" {{if eq .Recent `1d`}}selected{{end}}>
+                  Last day
+                </option>
+                <option value="7d" {{if eq .Recent `7d`}}selected{{end}}>
+                  Last 7 days
+                </option>
+                <option value="14d" {{if eq .Recent `14d`}}selected{{end}}>
+                  Last 14 days
+                </option>
+                <option value="30d" {{if eq .Recent `30d`}}selected{{end}}>
+                  Last 30 days
+                </option>
+                <option value="90d" {{if eq .Recent `90d`}}selected{{end}}>
+                  Last 90 days
+                </option>
+                <option value="6mo" {{if eq .Recent `6mo`}}selected{{end}}>
+                  Last 6 months
+                </option>
+                <option value="1y" {{if eq .Recent `1y`}}selected{{end}}>
+                  Last year
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <label class="history-search-option">
+            <input
+              type="checkbox"
+              name="body"
+              value="1"
+              {{if
+              .SearchBody}}checked{{end}}
+            />
+            <span>Search text/code file body</span>
+          </label>
+        </form>
+
         <nav class="history-filter-pills" aria-label="History filters">
           <a
-            href="/history"
+            href="/history?{{if .Query}}q={{queryEscape .Query}}&{{end}}{{if .SearchBody}}body=1&{{end}}{{if .DateFrom}}from={{queryEscape .DateFrom}}&{{end}}{{if .DateTo}}to={{queryEscape .DateTo}}&{{end}}{{if .Recent}}recent={{queryEscape .Recent}}{{end}}"
             class="history-filter-pill {{if not .TypeFilter}}is-active{{end}}"
           >
             All
           </a>
+
           <a
-            href="/history?type=image"
+            href="/history?type=image{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "image"}}is-active{{end}}'
           >
             Images
           </a>
+
           <a
-            href="/history?type=video"
+            href="/history?type=video{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "video"}}is-active{{end}}'
           >
             Videos
           </a>
+
           <a
-            href="/history?type=file"
+            href="/history?type=file{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "file"}}is-active{{end}}'
           >
             Files
@@ -156,7 +240,7 @@
   <button
     type="button"
     class="load-more-btn"
-    hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{.TypeFilter}}{{end}}"
+    hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{queryEscape .TypeFilter}}{{end}}{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
     hx-trigger="click"
     hx-target="closest .gallery-load-more-row"
     hx-swap="outerHTML"

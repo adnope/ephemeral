@@ -930,3 +930,112 @@ dialog::backdrop {
 .bubble-retry-btn:hover {
   text-decoration: underline;
 }
+
+.history-search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.history-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.history-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  margin: 0 !important;
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.history-search-input:focus {
+  border-color: var(--color-link);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+.history-search-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  background: var(--color-link);
+  color: white;
+  font-weight: 600;
+}
+
+.history-search-clear {
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.history-search-clear:hover {
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
+.history-search-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.9em;
+  user-select: none;
+}
+
+.history-search-option input {
+  margin: 0;
+}
+
+.history-search-date-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.history-search-date-field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.history-search-date-field input,
+.history-search-date-field select {
+  width: 100%;
+  height: 34px;
+  padding: 6px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.history-search-date-field input:focus,
+.history-search-date-field select:focus {
+  border-color: var(--color-link);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+@media (max-width: 640px) {
+  .history-search-date-row {
+    grid-template-columns: 1fr;
+  }
+}

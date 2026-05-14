@@ -138,8 +138,9 @@ func main() {
 
 func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
-		"formatSize": formatSize,
-		"fileURL":    fileURL,
+		"formatSize":  formatSize,
+		"fileURL":     fileURL,
+		"queryEscape": queryEscape,
 	}
 
 	tmpl, err := template.New("").Funcs(funcMap).ParseGlob("web/template/*.html")
@@ -153,10 +154,6 @@ func parseTemplates() (*template.Template, error) {
 	}
 
 	return tmpl, nil
-}
-
-func fileURL(name string) string {
-	return "/api/files/" + url.PathEscape(name)
 }
 
 func formatSize(bytes int64) string {
@@ -176,4 +173,12 @@ func formatSize(bytes int64) string {
 	default:
 		return fmt.Sprintf("%d B", bytes)
 	}
+}
+
+func fileURL(name string) string {
+	return "/api/files/" + url.PathEscape(name)
+}
+
+func queryEscape(value string) string {
+	return url.QueryEscape(value)
 }

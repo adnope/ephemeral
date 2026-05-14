@@ -8,7 +8,7 @@ import (
 	"github.com/adnope/ephemeral/internal/store"
 )
 
-const chatPageSize = 100
+const chatPageSize = 50
 
 // Index serves the main chat stream page.
 // GET /
