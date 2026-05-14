@@ -262,6 +262,8 @@
           maxConcurrentUploads: 1,
           uploadQueueCollapsed: false,
 
+          pendingLocalTextCreates: 0,
+
           get hasUploads() {
             return this.uploads.length > 0;
           },
@@ -330,7 +332,15 @@
               }, 250);
             };
 
-            es.addEventListener("item:new", refreshChat);
+            es.addEventListener("item:new", () => {
+              if (this.pendingLocalTextCreates > 0) {
+                this.pendingLocalTextCreates -= 1;
+                return;
+              }
+
+              refreshChat();
+            });
+
             es.addEventListener("item:updated", refreshChat);
           },
 
@@ -515,23 +525,156 @@
             const text = this.message.trim();
             if (!text) return;
 
-            const params = new URLSearchParams();
-            params.append("text", text);
-
-            const response = await fetch("/api/message", {
-              method: "POST",
-              body: params,
-            });
-
-            if (!response.ok) {
-              throw new Error(`send message failed: ${response.status}`);
-            }
-
             this.message = "";
             this.$nextTick(() => {
               if (this.$refs.messageInput) {
                 this.$refs.messageInput.style.height = "auto";
               }
+            });
+
+            const bubble = this.createOptimisticTextBubble(text);
+            this.prependChatBubble(bubble);
+
+            try {
+              this.pendingLocalTextCreates += 1;
+
+              const params = new URLSearchParams();
+              params.append("text", text);
+
+              const response = await fetch("/api/message", {
+                method: "POST",
+                body: params,
+              });
+
+              if (!response.ok) {
+                throw new Error(`send message failed: HTTP ${response.status}`);
+              }
+
+              const html = await response.text();
+              const serverBubble = this.parseServerBubble(html);
+
+              if (serverBubble) {
+                this.attachSendStatus(serverBubble, "sent");
+                bubble.replaceWith(serverBubble);
+              } else {
+                this.setBubbleStatus(bubble, "sent");
+              }
+            } catch (error) {
+              this.setBubbleStatus(bubble, "failed", error.message, () => {
+                bubble.remove();
+                this.message = text;
+                this.$nextTick(() => {
+                  this.sendMessage();
+                });
+              });
+            }
+          },
+
+          createOptimisticTextBubble(text) {
+            const bubble = document.createElement("div");
+            bubble.className = "chat-bubble chat-bubble--pending";
+
+            const message = document.createElement("p");
+            message.className = "message-text";
+            message.textContent = text;
+
+            const footer = document.createElement("div");
+            footer.className = "bubble-footer";
+
+            const time = document.createElement("time");
+            time.className = "bubble-time";
+            time.textContent = this.formatLocalTime(new Date());
+
+            const status = document.createElement("span");
+            status.className = "bubble-send-status is-sending";
+            status.textContent = "Sending...";
+
+            footer.append(time, status);
+            bubble.append(message, footer);
+
+            return bubble;
+          },
+
+          prependChatBubble(bubble) {
+            const stream = document.getElementById("chat-stream");
+            if (!stream) return;
+
+            stream.insertBefore(bubble, stream.firstChild);
+          },
+
+          parseServerBubble(html) {
+            const template = document.createElement("template");
+            template.innerHTML = html.trim();
+
+            const bubble = template.content.firstElementChild;
+            if (!(bubble instanceof HTMLElement)) return null;
+
+            return bubble;
+          },
+
+          attachSendStatus(bubble, status) {
+            let footer = bubble.querySelector(".bubble-footer");
+
+            if (!footer) {
+              const time = bubble.querySelector(".bubble-time");
+
+              footer = document.createElement("div");
+              footer.className = "bubble-footer";
+
+              if (time) {
+                time.replaceWith(footer);
+                footer.appendChild(time);
+              } else {
+                bubble.appendChild(footer);
+              }
+            }
+
+            const statusEl = document.createElement("span");
+            statusEl.className = `bubble-send-status is-${status}`;
+            statusEl.textContent = status === "sent" ? "Sent" : status;
+
+            footer.appendChild(statusEl);
+          },
+
+          setBubbleStatus(bubble, status, errorMessage = "", retry = null) {
+            const statusEl = bubble.querySelector(".bubble-send-status");
+            if (!statusEl) return;
+
+            statusEl.className = `bubble-send-status is-${status}`;
+
+            if (status === "sent") {
+              statusEl.textContent = "Sent";
+              bubble.classList.remove("chat-bubble--pending");
+              return;
+            }
+
+            if (status === "failed") {
+              statusEl.textContent = "Failed";
+              bubble.classList.add("chat-bubble--failed");
+
+              if (errorMessage) {
+                bubble.title = errorMessage;
+              }
+
+              if (retry && !bubble.querySelector(".bubble-retry-btn")) {
+                const retryBtn = document.createElement("button");
+                retryBtn.type = "button";
+                retryBtn.className = "bubble-retry-btn";
+                retryBtn.textContent = "Retry";
+                retryBtn.addEventListener("click", retry);
+
+                const footer = bubble.querySelector(".bubble-footer");
+                if (footer) footer.appendChild(retryBtn);
+              }
+            }
+          },
+
+          formatLocalTime(date) {
+            return date.toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
             });
           },
 

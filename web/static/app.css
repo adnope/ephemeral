@@ -877,3 +877,56 @@ dialog::backdrop {
   font-size: 0.85em;
   text-align: center;
 }
+
+.bubble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.bubble-footer .bubble-time {
+  margin-top: 0;
+}
+
+.bubble-send-status {
+  color: var(--color-text-muted);
+  font-size: 0.8em;
+}
+
+.bubble-send-status.is-sending {
+  font-style: italic;
+}
+
+.bubble-send-status.is-sent {
+  color: #1a7f37;
+}
+
+.bubble-send-status.is-failed {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.chat-bubble--pending {
+  opacity: 0.85;
+}
+
+.chat-bubble--failed {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+}
+
+.bubble-retry-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-danger);
+  cursor: pointer;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+
+.bubble-retry-btn:hover {
+  text-decoration: underline;
+}
