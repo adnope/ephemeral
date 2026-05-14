@@ -1039,3 +1039,147 @@ dialog::backdrop {
     grid-template-columns: 1fr;
   }
 }
+
+button.file-action-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gallery-file-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+dialog.text-viewer-dialog {
+  width: min(96vw, 1100px);
+  height: min(92vh, 820px);
+  max-width: 96vw;
+  max-height: 92vh;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+dialog.text-viewer-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-viewer-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.text-viewer-title-wrap {
+  min-width: 0;
+}
+
+.text-viewer-title {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-viewer-meta,
+.text-viewer-status {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+}
+
+.text-viewer-actions {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
+.text-viewer-toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.text-viewer-language-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.text-viewer-language {
+  height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #d0d7de;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-base);
+}
+
+.text-viewer-code {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: #fff;
+}
+
+.text-viewer-code pre {
+  min-height: 100%;
+  margin: 0 !important;
+  padding: 14px !important;
+  overflow: visible !important;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.text-viewer-code code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+
+@media (max-width: 640px) {
+  .text-viewer-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .text-viewer-actions {
+    justify-content: flex-end;
+  }
+
+  .text-viewer-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+.text-viewer-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.text-viewer-copy-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}

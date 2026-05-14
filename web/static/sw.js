@@ -12,6 +12,7 @@ const BYPASS_PATTERNS = [
   /^\/api\/upload$/,
   /^\/api\/message$/,
   /^\/api\/files\//,
+  /^\/api\/file-preview\//,
 ];
 
 self.addEventListener("install", (event) => {

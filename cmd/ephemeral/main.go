@@ -102,6 +102,7 @@ func main() {
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)
 	r.Get("/api/files/*", h.ServeFile)
+	r.Get("/api/file-preview/{id}", h.PreviewFile)
 	r.Post("/api/login", h.Login)
 	r.Post("/api/logout", h.Logout)
 

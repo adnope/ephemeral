@@ -96,6 +96,316 @@
   <span>·</span>
   <span>{{.CreatedAt.Format "Jan 2, 2006 3:04 PM"}}</span>
 </div>
+{{end}} {{define "text_viewer_dialog"}}
+<dialog id="textViewerDialog" class="text-viewer-dialog">
+  <div class="text-viewer-header">
+    <div class="text-viewer-title-wrap">
+      <div id="textViewerTitle" class="text-viewer-title">Preview</div>
+      <div id="textViewerMeta" class="text-viewer-meta"></div>
+    </div>
+
+    <div class="text-viewer-actions">
+      <button
+        type="button"
+        id="textViewerCopy"
+        class="btn text-viewer-copy-btn"
+        onclick="copyTextViewerContent()"
+      >
+        <svg
+          class="text-viewer-copy-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          height="16"
+          viewBox="0 -960 960 960"
+          width="16"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"
+          />
+        </svg>
+        <span id="textViewerCopyLabel">Copy</span>
+      </button>
+
+      <a id="textViewerDownload" href="#" download class="btn">Download</a>
+      <button type="button" class="btn" onclick="closeTextViewer()">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <div class="text-viewer-toolbar">
+    <label class="text-viewer-language-label">
+      Syntax
+      <select id="textViewerLanguage" class="text-viewer-language">
+        <option value="auto">Auto detect</option>
+        <option value="plaintext">Plain text</option>
+        <option value="go">Go</option>
+        <option value="python">Python</option>
+        <option value="javascript">JavaScript</option>
+        <option value="typescript">TypeScript</option>
+        <option value="jsx">JSX</option>
+        <option value="tsx">TSX</option>
+        <option value="json">JSON</option>
+        <option value="markdown">Markdown</option>
+        <option value="yaml">YAML</option>
+        <option value="toml">TOML</option>
+        <option value="html">HTML</option>
+        <option value="css">CSS</option>
+        <option value="scss">SCSS</option>
+        <option value="xml">XML</option>
+        <option value="sql">SQL</option>
+        <option value="shellscript">Shell</option>
+        <option value="make">Makefile</option>
+        <option value="dockerfile">Dockerfile</option>
+        <option value="rust">Rust</option>
+        <option value="c">C</option>
+        <option value="cpp">C++</option>
+        <option value="java">Java</option>
+        <option value="kotlin">Kotlin</option>
+        <option value="ruby">Ruby</option>
+        <option value="php">PHP</option>
+        <option value="lua">Lua</option>
+      </select>
+    </label>
+
+    <span id="textViewerStatus" class="text-viewer-status"></span>
+  </div>
+
+  <div id="textViewerCode" class="text-viewer-code"></div>
+</dialog>
+{{end}} {{define "text_viewer_scripts"}}
+<script type="module">
+  import { codeToHtml } from "https://esm.sh/shiki@4.0.2";
+
+  const state = {
+    preview: null,
+    renderSeq: 0,
+  };
+
+  const supportedLanguages = new Set([
+    "plaintext",
+    "go",
+    "python",
+    "javascript",
+    "typescript",
+    "jsx",
+    "tsx",
+    "json",
+    "make",
+    "markdown",
+    "yaml",
+    "toml",
+    "html",
+    "css",
+    "scss",
+    "xml",
+    "sql",
+    "shellscript",
+    "dockerfile",
+    "rust",
+    "c",
+    "cpp",
+    "java",
+    "kotlin",
+    "ruby",
+    "php",
+    "lua",
+  ]);
+
+  function requireElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+      throw new Error(`missing element #${id}`);
+    }
+    return element;
+  }
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+
+    if (unitIndex === 0) return `${Math.round(value)} ${units[unitIndex]}`;
+    return `${value.toFixed(1)} ${units[unitIndex]}`;
+  }
+
+  function setStatus(message) {
+    requireElement("textViewerStatus").textContent = message;
+  }
+
+  function selectedLanguage() {
+    const select = requireElement("textViewerLanguage");
+    if (!state.preview) return "plaintext";
+
+    if (select.value === "auto") {
+      return supportedLanguages.has(state.preview.language)
+        ? state.preview.language
+        : "plaintext";
+    }
+
+    return supportedLanguages.has(select.value) ? select.value : "plaintext";
+  }
+
+  async function renderPreview() {
+    if (!state.preview) return;
+
+    const codeRoot = requireElement("textViewerCode");
+    requireElement("textViewerCopyLabel").textContent = "Copy";
+    const seq = ++state.renderSeq;
+    const lang = selectedLanguage();
+
+    setStatus(`Rendering ${lang}...`);
+
+    try {
+      const html = await codeToHtml(state.preview.content, {
+        lang,
+        theme: "github-light",
+      });
+
+      if (seq !== state.renderSeq) return;
+
+      codeRoot.innerHTML = html;
+      setStatus(lang === state.preview.language ? "Auto detected" : lang);
+    } catch (error) {
+      if (seq !== state.renderSeq) return;
+
+      console.warn("syntax highlight failed", error);
+
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = state.preview.content;
+      pre.appendChild(code);
+
+      codeRoot.replaceChildren(pre);
+      setStatus("Plain text fallback");
+    }
+  }
+
+  window.openTextViewer = async function (trigger) {
+    if (!(trigger instanceof HTMLElement)) return;
+
+    const id = trigger.dataset.previewId;
+    const fallbackURL = trigger.dataset.fileUrl;
+
+    if (!id) return;
+
+    const dialog = requireElement("textViewerDialog");
+    const title = requireElement("textViewerTitle");
+    const meta = requireElement("textViewerMeta");
+    const download = requireElement("textViewerDownload");
+    const language = requireElement("textViewerLanguage");
+    const codeRoot = requireElement("textViewerCode");
+    requireElement("textViewerCopyLabel").textContent = "Copy";
+
+    title.textContent = "Loading preview...";
+    meta.textContent = "";
+    download.removeAttribute("href");
+    codeRoot.textContent = "";
+    language.value = "auto";
+    setStatus("Loading...");
+
+    if (dialog instanceof HTMLDialogElement && !dialog.open) {
+      dialog.showModal();
+    }
+
+    try {
+      const response = await fetch(
+        `/api/file-preview/${encodeURIComponent(id)}`,
+        {
+          headers: { Accept: "application/json" },
+        },
+      );
+
+      if (response.status === 413 || response.status === 415) {
+        if (fallbackURL) {
+          window.open(fallbackURL, "_blank", "noopener,noreferrer");
+        }
+        closeTextViewer();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(`preview failed: HTTP ${response.status}`);
+      }
+
+      const preview = await response.json();
+      state.preview = preview;
+
+      title.textContent = preview.filename || "Preview";
+      meta.textContent = `${formatBytes(preview.filesize)} · ${
+        preview.mime || "text/plain"
+      } · ${preview.created_at || ""}`;
+
+      download.href = preview.download_url;
+      download.download = preview.filename || "";
+
+      await renderPreview();
+    } catch (error) {
+      console.error(error);
+      title.textContent = "Preview unavailable";
+      meta.textContent = "";
+      codeRoot.textContent = "Could not load text preview.";
+      setStatus("Error");
+    }
+  };
+
+  window.closeTextViewer = function () {
+    const dialog = requireElement("textViewerDialog");
+    if (dialog instanceof HTMLDialogElement && dialog.open) {
+      dialog.close();
+    }
+  };
+
+  window.copyTextViewerContent = async function () {
+    if (!state.preview) return;
+
+    const label = requireElement("textViewerCopyLabel");
+
+    try {
+      await navigator.clipboard.writeText(state.preview.content);
+      label.textContent = "Copied";
+
+      window.setTimeout(() => {
+        label.textContent = "Copy";
+      }, 1200);
+    } catch (error) {
+      console.warn("copy failed", error);
+
+      const textarea = document.createElement("textarea");
+      textarea.value = state.preview.content;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+
+      label.textContent = "Copied";
+      window.setTimeout(() => {
+        label.textContent = "Copy";
+      }, 1200);
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const language = document.getElementById("textViewerLanguage");
+    if (language) {
+      language.addEventListener("change", () => {
+        void renderPreview();
+      });
+    }
+  });
+</script>
 {{end}} {{define "media_scripts"}}
 <script>
   window.openMediaDialog = function (dialog) {

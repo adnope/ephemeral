@@ -140,6 +140,7 @@
       </main>
     </div>
 
+    {{template "text_viewer_dialog" .}} {{template "text_viewer_scripts" .}}
     {{template "media_scripts" .}}
   </body>
 </html>
@@ -225,13 +226,25 @@
   <div class="gallery-file-info">
     <span class="file-name">{{.Filename}}</span>
     <span class="file-type">{{.Type}}</span>
-    <a
-      href="{{fileURL .Content}}"
-      download="{{.Filename}}"
-      class="file-action-link"
-    >
-      Download
-    </a>
+
+    <div class="gallery-file-actions">
+      <button
+        type="button"
+        class="file-action-link"
+        data-preview-id="{{.ID}}"
+        data-file-url="{{fileURL .Content}}"
+        onclick="openTextViewer(this)"
+      >
+        View
+      </button>
+      <a
+        href="{{fileURL .Content}}"
+        download="{{.Filename}}"
+        class="file-action-link"
+      >
+        Download
+      </a>
+    </div>
   </div>
   {{end}}
 </div>

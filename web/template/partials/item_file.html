@@ -6,14 +6,15 @@
   </div>
 
   <div class="bubble-file-actions">
-    <a
-      href="{{fileURL .Content}}"
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
       class="file-action-link"
+      data-preview-id="{{.ID}}"
+      data-file-url="{{fileURL .Content}}"
+      onclick="openTextViewer(this)"
     >
       View
-    </a>
+    </button>
     <a
       href="{{fileURL .Content}}"
       download="{{.Filename}}"

@@ -208,6 +208,7 @@
       </section>
     </div>
 
+    {{template "text_viewer_dialog" .}} {{template "text_viewer_scripts" .}}
     <dialog x-ref="videoPlayerDialog" class="media-dialog" tabindex="-1">
       <div class="media-dialog-actions">
         <a :href="activeVideoUrl" :download="activeVideoName" class="btn">
