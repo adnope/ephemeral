@@ -249,16 +249,14 @@
   {{end}}
 </div>
 {{end}} {{if .NextCursor}}
-<div class="gallery-load-more-row">
-  <button
-    type="button"
-    class="load-more-btn"
-    hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{queryEscape .TypeFilter}}{{end}}{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
-    hx-trigger="click"
-    hx-target="closest .gallery-load-more-row"
-    hx-swap="outerHTML"
-  >
-    Load more
-  </button>
+<div
+  class="gallery-auto-load-row"
+  hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{queryEscape .TypeFilter}}{{end}}{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
+  hx-trigger="intersect once root:.history-main threshold:0.1"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  <span class="auto-load-spinner"></span>
+  <span>Loading more...</span>
 </div>
 {{end}} {{end}}

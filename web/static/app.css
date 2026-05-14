@@ -120,9 +120,7 @@ main {
 .input-form,
 .bubble-file-actions,
 .media-dialog-actions,
-.media-dialog-nav,
-.load-more-row,
-.gallery-load-more-row {
+.media-dialog-nav {
   display: flex;
   align-items: center;
 }
@@ -260,8 +258,7 @@ main {
 
 .file-action-link:focus-visible,
 .video-thumb-card:focus-visible,
-.video-placeholder-card:focus-visible,
-.load-more-btn:focus-visible {
+.video-placeholder-card:focus-visible {
   outline: 2px solid var(--color-link);
   outline-offset: 2px;
 }
@@ -331,8 +328,7 @@ main {
   margin-bottom: 15px;
 }
 
-.history-filter-pill,
-.load-more-btn {
+.history-filter-pill {
   border: 1px solid #d0d7de;
   border-radius: var(--radius-pill);
   background: var(--color-surface);
@@ -350,8 +346,7 @@ main {
   line-height: 1;
 }
 
-.history-filter-pill:hover,
-.load-more-btn:hover {
+.history-filter-pill:hover {
   background: var(--color-hover);
 }
 
@@ -512,30 +507,6 @@ dialog::backdrop {
   color: white;
   font-size: 18px;
   pointer-events: none;
-}
-
-.load-more-row {
-  justify-content: center;
-  margin: 8px 0 14px;
-}
-
-.gallery-load-more-row {
-  grid-column: 1 / -1;
-  justify-content: center;
-  padding: 10px;
-}
-
-.load-more-btn {
-  padding: 7px 12px;
-  color: var(--color-link);
-  cursor: pointer;
-  font-size: var(--font-size-base);
-  font-weight: 600;
-}
-
-.load-more-btn:disabled {
-  cursor: wait;
-  opacity: 0.65;
 }
 
 .input-form {
@@ -1182,4 +1153,38 @@ dialog.text-viewer-dialog[open] {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
+}
+
+.auto-load-row,
+.gallery-auto-load-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.9em;
+}
+
+.auto-load-row {
+  margin: 8px 0 14px;
+}
+
+.gallery-auto-load-row {
+  grid-column: 1 / -1;
+  padding: 12px;
+}
+
+.auto-load-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #d0d7de;
+  border-top-color: var(--color-link);
+  border-radius: 50%;
+  animation: auto-load-spin 700ms linear infinite;
+}
+
+@keyframes auto-load-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

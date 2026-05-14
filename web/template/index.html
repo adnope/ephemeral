@@ -35,17 +35,15 @@
         <main id="chat-stream">
           {{range .Items}} {{template "item_partial" .}} {{end}} {{if
           .NextCursor}}
-          <div class="load-more-row">
-            <button
-              type="button"
-              class="load-more-btn"
-              hx-get="/?cursor={{.NextCursor}}"
-              hx-trigger="click"
-              hx-target="closest .load-more-row"
-              hx-swap="outerHTML"
-            >
-              Load older messages
-            </button>
+          <div
+            class="auto-load-row"
+            hx-get="/?cursor={{.NextCursor}}"
+            hx-trigger="intersect once root:#chat-stream threshold:0.1"
+            hx-target="this"
+            hx-swap="outerHTML"
+          >
+            <span class="auto-load-spinner"></span>
+            <span>Loading older messages...</span>
           </div>
           {{end}}
         </main>
