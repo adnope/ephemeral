@@ -441,18 +441,25 @@
   window.handleMediaDialogKeydown = function (event, dialog) {
     if (!(dialog instanceof HTMLDialogElement) || !dialog.open) return;
 
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.navigateMedia(dialog, 1);
-      return;
-    }
+    const mode = dialog.dataset.mediaNavMode || "chat";
 
-    if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      window.navigateMedia(dialog, -1);
-    }
+    const directions =
+      mode === "history"
+        ? {
+            ArrowLeft: 1,
+            ArrowRight: -1,
+          }
+        : {
+            ArrowLeft: -1,
+            ArrowRight: 1,
+          };
+
+    const direction = directions[event.key];
+    if (direction === undefined) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.navigateMedia(dialog, direction);
   };
 </script>
 {{end}}

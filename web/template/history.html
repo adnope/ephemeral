@@ -150,6 +150,7 @@
   <dialog
     x-ref="histImgDialog_{{.ID}}"
     class="media-dialog"
+    data-media-nav-mode="history"
     tabindex="-1"
     @keydown.window="handleMediaDialogKeydown($event, $el)"
   >
@@ -175,6 +176,7 @@
   <dialog
     x-ref="histVidDialog_{{.ID}}"
     class="media-dialog"
+    data-media-nav-mode="history"
     tabindex="-1"
     @keydown.window="handleMediaDialogKeydown($event, $el)"
   >
