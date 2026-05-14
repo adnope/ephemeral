@@ -5,12 +5,12 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 Features:
 
 - Chat-style feed
-- Image previews
-- Video thumbnails and playback
+- Image and video media viewer with thumbnail preview
 - Generic file view/download
-- History page with filters
-- Pagination
-- Live updates via SSE
+- Code and text file viewer with syntax highlighting
+- Upload progress queue for file uploads
+- History search: type and date filters, filename, text file body search
+- Pagination and infinite scrolling
 - SQLite data persistence
 - Docker deployment
 - Hot-reload development
@@ -19,11 +19,10 @@ Features:
 
 - Go
 - SQLite
-- Go HTML templates
 - Alpine.js
 - HTMX
 - FFmpeg
-- Docker / Docker Compose
+- Docker & Docker Compose
 
 ## Requirements (Development Only)
 
