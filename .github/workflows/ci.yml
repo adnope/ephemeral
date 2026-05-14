@@ -33,7 +33,7 @@ jobs:
 
       - name: Check Go formatting
         run: |
-          unformatted="$(gofmt -l ./cmd ./internal)"
+          unformatted="$(gofmt -l ./cmd ./internal ./web)"
           if [ -n "$unformatted" ]; then
             echo "Go files are not formatted:"
             echo "$unformatted"
@@ -41,7 +41,7 @@ jobs:
           fi
 
       - name: Vet
-        run: go vet ./cmd/... ./internal/...
+        run: go vet ./cmd/... ./internal/... ./web
 
       - name: Test
         run: go test ./...
@@ -92,10 +92,5 @@ jobs:
       - name: Verify required static files exist in image
         run: |
           docker run --rm --entrypoint sh ephemeral:ci -c '
-            test -f /app/ephemeral &&
-            test -f /app/web/static/app.min.js &&
-            test -f /app/web/static/app.css &&
-            test -f /app/web/static/sw.js &&
-            test -d /app/web/template &&
-            test -d /app/migrations
+            test -f /app/ephemeral
           '

@@ -1,18 +1,15 @@
-FROM golang:1.21-alpine AS builder
+FROM golang:1.26.3-alpine3.23 AS builder
 
 WORKDIR /src
 
-RUN apk add --no-cache ca-certificates
-
-COPY go.mod go.sum ./
+COPY --link go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY cmd ./cmd
-COPY internal ./internal
-COPY migrations ./migrations
-COPY web ./web
+COPY --link cmd ./cmd
+COPY --link internal ./internal
+COPY --link web ./web
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
@@ -22,7 +19,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
       -o /out/ephemeral \
       ./cmd/ephemeral
 
-FROM alpine:3.20 AS runtime
+FROM alpine:3.23.4 AS runtime
+
+LABEL org.opencontainers.image.title="Ephemeral" \
+      org.opencontainers.image.description="Single-user text and file sharing app" \
+      org.opencontainers.image.source="https://github.com/adnope/ephemeral"
 
 RUN apk add --no-cache \
       ffmpeg \
@@ -32,9 +33,7 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-COPY --from=builder --chown=ephemeral:ephemeral /out/ephemeral /app/ephemeral
-COPY --from=builder --chown=ephemeral:ephemeral /src/web /app/web
-COPY --from=builder --chown=ephemeral:ephemeral /src/migrations /app/migrations
+COPY --link --from=builder --chown=ephemeral:ephemeral /out/ephemeral /app/ephemeral
 
 RUN mkdir -p /app/data/uploads/thumbs \
     && chown -R ephemeral:ephemeral /app/data
@@ -42,5 +41,7 @@ RUN mkdir -p /app/data/uploads/thumbs \
 USER ephemeral
 
 EXPOSE 8080
+
+STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["/app/ephemeral"]

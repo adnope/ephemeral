@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"sort"
 	"strings"
 	"syscall"
@@ -17,6 +17,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/adnope/ephemeral/internal/migrations"
+	"github.com/adnope/ephemeral/web"
 
 	"github.com/adnope/ephemeral/internal/bodyindex"
 	"github.com/adnope/ephemeral/internal/config"
@@ -39,7 +42,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	migrationSQL, err := loadMigrations("migrations")
+	migrationSQL, err := loadMigrations(migrations.FS)
 	if err != nil {
 		logger.Error("migration read failed", "err", err)
 		os.Exit(1)
@@ -90,7 +93,13 @@ func main() {
 	r.Use(mw.RateLimit(100, time.Minute))
 	r.Use(mw.SessionAuth(sessionRepo))
 
-	staticFS := http.FileServer(http.Dir("web/static"))
+	staticSubFS, err := fs.Sub(web.FS, "static")
+	if err != nil {
+		logger.Error("static fs init failed", "err", err)
+		os.Exit(1)
+	}
+
+	staticFS := http.FileServer(http.FS(staticSubFS))
 	r.Handle("/static/*", http.StripPrefix("/static/", staticFS))
 
 	r.Get("/", h.Index)
@@ -153,10 +162,10 @@ func main() {
 	logger.Info("shutdown complete")
 }
 
-func loadMigrations(dir string) (string, error) {
-	entries, err := os.ReadDir(dir)
+func loadMigrations(fsys fs.FS) (string, error) {
+	entries, err := fs.ReadDir(fsys, ".")
 	if err != nil {
-		return "", fmt.Errorf("read migrations dir: %w", err)
+		return "", fmt.Errorf("read embedded migrations: %w", err)
 	}
 
 	names := make([]string, 0, len(entries))
@@ -173,11 +182,9 @@ func loadMigrations(dir string) (string, error) {
 
 	var b strings.Builder
 	for _, name := range names {
-		path := filepath.Join(dir, name)
-
-		sqlBytes, err := os.ReadFile(path)
+		sqlBytes, err := fs.ReadFile(fsys, name)
 		if err != nil {
-			return "", fmt.Errorf("read migration %s: %w", name, err)
+			return "", fmt.Errorf("read embedded migration %s: %w", name, err)
 		}
 
 		b.WriteString("\n-- migration: ")
@@ -197,14 +204,13 @@ func parseTemplates() (*template.Template, error) {
 		"queryEscape": queryEscape,
 	}
 
-	tmpl, err := template.New("").Funcs(funcMap).ParseGlob("web/template/*.html")
+	tmpl, err := template.New("").Funcs(funcMap).ParseFS(
+		web.FS,
+		"template/*.html",
+		"template/partials/*.html",
+	)
 	if err != nil {
-		return nil, fmt.Errorf("parse templates: %w", err)
-	}
-
-	tmpl, err = tmpl.ParseGlob("web/template/partials/*.html")
-	if err != nil {
-		return nil, fmt.Errorf("parse partials: %w", err)
+		return nil, fmt.Errorf("parse embedded templates: %w", err)
 	}
 
 	return tmpl, nil

@@ -4,7 +4,7 @@
 APP_NAME := ephemeral
 WEB_DIR := web
 
-GO_DIRS := ./cmd/... ./internal/...
+GO_DIRS := ./cmd/... ./internal/... ./web
 
 build:
 	CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ./bin/$(APP_NAME) ./cmd/$(APP_NAME)
