@@ -149,7 +149,12 @@
   </body>
 </html>
 {{end}} {{define "history_items"}} {{range .Items}}
-<div class="gallery-item" x-data>
+<div
+  class="gallery-item"
+  id="history-item-{{.ID}}"
+  data-item-id="{{.ID}}"
+  x-data
+>
   {{if eq .Type "image"}}
   <dialog
     x-ref="histImgDialog_{{.ID}}"
@@ -232,6 +237,7 @@
   <div class="gallery-file-info">
     <span class="file-name">{{.Filename}}</span>
     <span class="file-type">{{.Type}}</span>
+    <span class="file-size">{{formatSize .Filesize}}</span>
 
     <div class="gallery-file-actions">
       <button
@@ -243,6 +249,7 @@
       >
         View
       </button>
+
       <a
         href="{{fileURL .Content}}"
         download="{{.Filename}}"
@@ -250,6 +257,15 @@
       >
         Download
       </a>
+
+      <button
+        type="button"
+        class="file-action-link file-action-delete"
+        data-delete-id="{{.ID}}"
+        onclick="deleteItemFromElement(this)"
+      >
+        Delete
+      </button>
     </div>
   </div>
   {{end}}

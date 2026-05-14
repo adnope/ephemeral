@@ -11,10 +11,35 @@
   <span>Loading older messages...</span>
 </div>
 {{end}} {{end}} {{define "item_partial"}}
-<div class="chat-bubble" id="item-{{.ID}}">
+<div class="chat-bubble" id="item-{{.ID}}" data-item-id="{{.ID}}">
+  <div class="bubble-menu-wrap">
+    <button
+      type="button"
+      class="bubble-more-btn"
+      aria-label="More actions"
+      aria-haspopup="menu"
+      aria-expanded="false"
+      @click.stop="toggleItemMenu($event)"
+    >
+      <span aria-hidden="true">⋮</span>
+    </button>
+
+    <div class="bubble-action-menu" role="menu">
+      <button
+        type="button"
+        class="bubble-action-menu-item is-danger"
+        role="menuitem"
+        @click.stop="deleteItem({{.ID}})"
+      >
+        Delete item
+      </button>
+    </div>
+  </div>
+
   {{if eq .Type "text"}} {{template "item_text" .}} {{else if eq .Type "image"}}
   {{template "item_image" .}} {{else if eq .Type "video"}} {{template
   "item_video" .}} {{else}} {{template "item_file" .}} {{end}}
+
   <div class="bubble-footer">
     <time class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</time>
   </div>

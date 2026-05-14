@@ -3,6 +3,16 @@
   <a href="{{fileURL .Content}}" download="{{.Filename}}" class="btn">
     Download
   </a>
+
+  <button
+    type="button"
+    class="btn media-dialog-delete-btn"
+    data-delete-id="{{.ID}}"
+    onclick="deleteItemFromElement(this)"
+  >
+    Delete
+  </button>
+
   <button type="button" @click="$el.closest('dialog').close()" class="btn">
     Close
   </button>
@@ -419,6 +429,45 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     window.navigateMedia(dialog, direction);
+  };
+
+  window.removeItemFromDOM = function (id) {
+    const item = document.getElementById(`item-${id}`);
+    if (item) item.remove();
+
+    const galleryItem = document.getElementById(`history-item-${id}`);
+    if (galleryItem) galleryItem.remove();
+  };
+
+  window.deleteItem = async function (id) {
+    const confirmed = window.confirm("Delete this item forever?");
+    if (!confirmed) return;
+
+    document.querySelectorAll("dialog[open]").forEach((dialog) => {
+      if (dialog instanceof HTMLDialogElement) dialog.close();
+    });
+
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok && response.status !== 404) {
+      window.alert("Failed to delete item.");
+      return;
+    }
+
+    window.removeItemFromDOM(id);
+  };
+
+  window.deleteItemFromElement = function (element) {
+    if (!(element instanceof HTMLElement)) return;
+
+    const rawID = element.dataset.deleteId;
+    const id = Number.parseInt(rawID || "", 10);
+
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    window.deleteItem(id);
   };
 </script>
 {{end}}

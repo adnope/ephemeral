@@ -282,6 +282,7 @@
           },
 
           init() {
+            this.setupBubbleMenuHoverGrace();
             const es = new EventSource("/api/events");
             let refreshTimer = 0;
 
@@ -305,6 +306,64 @@
             });
 
             es.addEventListener("item:updated", refreshChat);
+
+            es.addEventListener("item:deleted", (event) => {
+              const id = Number.parseInt(event.data, 10);
+              if (Number.isFinite(id)) {
+                this.removeItemFromDOM(id);
+              }
+            });
+
+            document.addEventListener("click", () => {
+              this.closeItemMenus();
+            });
+
+            document.addEventListener("keydown", (event) => {
+              if (event.key === "Escape") {
+                this.closeItemMenus();
+              }
+            });
+          },
+
+          setupBubbleMenuHoverGrace() {
+            const timers = new WeakMap();
+
+            document.addEventListener(
+              "mouseenter",
+              (event) => {
+                const bubble = event.target.closest?.(".chat-bubble");
+                if (!(bubble instanceof HTMLElement)) return;
+
+                const menu = bubble.querySelector(".bubble-menu-wrap");
+                if (!(menu instanceof HTMLElement)) return;
+
+                const timer = timers.get(menu);
+                if (timer) window.clearTimeout(timer);
+
+                menu.classList.add("is-hover-grace");
+              },
+              true,
+            );
+
+            document.addEventListener(
+              "mouseleave",
+              (event) => {
+                const bubble = event.target.closest?.(".chat-bubble");
+                if (!(bubble instanceof HTMLElement)) return;
+
+                const menu = bubble.querySelector(".bubble-menu-wrap");
+                if (!(menu instanceof HTMLElement)) return;
+
+                const timer = window.setTimeout(() => {
+                  if (!menu.matches(":hover") && !bubble.matches(":hover")) {
+                    menu.classList.remove("is-hover-grace");
+                  }
+                }, 1000);
+
+                timers.set(menu, timer);
+              },
+              true,
+            );
           },
 
           handleDrop(e) {
@@ -630,6 +689,43 @@
                 if (footer) footer.appendChild(retryBtn);
               }
             }
+          },
+
+          closeItemMenus() {
+            document
+              .querySelectorAll(".bubble-menu-wrap.is-open")
+              .forEach((menu) => {
+                menu.classList.remove("is-open");
+
+                const button = menu.querySelector(".bubble-more-btn");
+                if (button) button.setAttribute("aria-expanded", "false");
+              });
+          },
+
+          toggleItemMenu(event) {
+            const button = event.currentTarget;
+            if (!(button instanceof HTMLElement)) return;
+
+            const wrap = button.closest(".bubble-menu-wrap");
+            if (!(wrap instanceof HTMLElement)) return;
+
+            const shouldOpen = !wrap.classList.contains("is-open");
+
+            this.closeItemMenus();
+
+            wrap.classList.toggle("is-open", shouldOpen);
+            button.setAttribute("aria-expanded", shouldOpen.toString());
+          },
+
+          removeItemFromDOM(id) {
+            const item = document.getElementById(`item-${id}`);
+            if (!item) return;
+
+            item.querySelectorAll("dialog[open]").forEach((dialog) => {
+              if (dialog instanceof HTMLDialogElement) dialog.close();
+            });
+
+            item.remove();
           },
 
           formatLocalTime(date) {

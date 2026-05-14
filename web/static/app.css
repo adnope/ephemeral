@@ -303,25 +303,35 @@ header h1 {
 
 .gallery-file-info {
   width: 100%;
+  height: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 5px;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
   text-align: center;
 }
 
-.gallery-file-info .file-action-link {
-  margin-top: 6px;
-}
-
 .file-name {
+  max-width: 100%;
   display: -webkit-box;
   overflow: hidden;
-  font-weight: bold;
+  font-weight: 700;
   line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  word-break: break-all;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.file-type,
+.file-size {
+  max-width: 100%;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
 }
 
 .history-filter-pills {
@@ -1024,10 +1034,20 @@ button.file-action-link {
 }
 
 .gallery-file-actions {
+  max-width: 100%;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 4px 8px;
   margin-top: 6px;
+}
+
+.gallery-file-actions .file-action-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.9em;
+  line-height: 1.3;
 }
 
 dialog.text-viewer-dialog {
@@ -1382,4 +1402,146 @@ dialog.text-viewer-dialog[open] {
   max-height: 100%;
   object-fit: contain;
   margin: 0;
+}
+
+.chat-bubble {
+  position: relative;
+}
+
+.bubble-menu-wrap {
+  position: absolute;
+  top: 8px;
+  right: calc(100% + 8px);
+  z-index: 5;
+  padding-right: 8px;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 200ms ease,
+    visibility 0s linear 1000ms;
+}
+
+.bubble-menu-wrap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 12px;
+  height: 100%;
+}
+
+.bubble-menu-wrap.is-hover-grace {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.chat-bubble:hover .bubble-menu-wrap,
+.chat-bubble:focus-within .bubble-menu-wrap,
+.bubble-menu-wrap:hover,
+.bubble-menu-wrap.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.bubble-more-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(51, 51, 51, 0.72);
+  color: white;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.bubble-more-btn:hover,
+.bubble-more-btn:focus-visible,
+.bubble-menu-wrap.is-open .bubble-more-btn {
+  background: rgba(31, 31, 31, 0.86);
+  outline: none;
+}
+
+.bubble-action-menu {
+  min-width: 132px;
+  display: none;
+  position: absolute;
+  top: 40px;
+  right: 8px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.bubble-menu-wrap.is-open .bubble-action-menu {
+  display: block;
+}
+
+.bubble-action-menu-item {
+  width: 100%;
+  display: block;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.bubble-action-menu-item:hover,
+.bubble-action-menu-item:focus-visible {
+  background: var(--color-hover);
+  outline: none;
+}
+
+.bubble-action-menu-item.is-danger {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+@media (max-width: 760px) {
+  .bubble-menu-wrap {
+    top: 6px;
+    right: auto;
+    left: 8px;
+    padding-right: 0;
+  }
+
+  .bubble-menu-wrap::after {
+    display: none;
+  }
+
+  .bubble-action-menu {
+    right: auto;
+    left: 0;
+  }
+}
+
+.media-dialog-delete-btn {
+  background: var(--color-danger);
+}
+
+.media-dialog-delete-btn:hover {
+  background: #a40e26;
+}
+
+.file-action-delete {
+  color: var(--color-danger);
+}
+
+.file-action-delete:hover {
+  text-decoration: underline;
 }
