@@ -28,17 +28,17 @@ LABEL org.opencontainers.image.title="Ephemeral" \
 RUN apk add --no-cache \
       ffmpeg \
       ca-certificates \
-    && addgroup -S ephemeral \
-    && adduser -S -D -H -h /app -s /sbin/nologin -G ephemeral ephemeral
+    && addgroup -S -g 10001 ephemeral \
+    && adduser -S -D -H -h /app -s /sbin/nologin -G ephemeral -u 10001 ephemeral
 
 WORKDIR /app
 
-COPY --link --from=builder --chown=ephemeral:ephemeral /out/ephemeral /app/ephemeral
+COPY --link --from=builder --chown=10001:10001 /out/ephemeral /app/ephemeral
 
 RUN mkdir -p /app/data/uploads/thumbs \
-    && chown -R ephemeral:ephemeral /app/data
+    && chown -R 10001:10001 /app/data
 
-USER ephemeral
+USER 10001:10001
 
 EXPOSE 8080
 
