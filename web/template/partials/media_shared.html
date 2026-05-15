@@ -241,6 +241,7 @@
 
       if (seq !== state.renderSeq) return;
 
+      codeRoot.classList.add("is-numbered");
       codeRoot.innerHTML = html;
       setStatus(lang === state.preview.language ? "Auto detected" : lang);
     } catch (error) {
@@ -250,9 +251,18 @@
 
       const pre = document.createElement("pre");
       const code = document.createElement("code");
-      code.textContent = state.preview.content;
+
+      const lines = state.preview.content.split("\n");
+      for (const line of lines) {
+        const span = document.createElement("span");
+        span.className = "line";
+        span.textContent = line || " ";
+        code.appendChild(span);
+      }
+
       pre.appendChild(code);
 
+      codeRoot.classList.add("is-numbered");
       codeRoot.replaceChildren(pre);
       setStatus("Plain text fallback");
     }
@@ -277,7 +287,7 @@
     title.textContent = "Loading preview...";
     meta.textContent = "";
     download.removeAttribute("href");
-    codeRoot.textContent = "";
+    codeRoot.classList.remove("is-numbered");
     language.value = "auto";
     setStatus("Loading...");
 

@@ -11,9 +11,9 @@
   --color-hover: #f3f4f6;
   --color-video-bg: #dfe3e8;
   --color-video-bg-hover: #d4dae1;
-  --color-danger: #cf222e;
-  --color-danger-bg: #ffeef0;
-  --color-danger-border: #ffccd2;
+  --color-danger: #f4f4f4;
+  --color-danger-bg: #d63540;
+  --color-danger-border: #d63540;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -145,7 +145,7 @@ header h1 {
   align-items: center;
   justify-content: center;
   padding: 6px 10px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   color: var(--color-text);
   font-weight: 500;
 }
@@ -156,8 +156,8 @@ header h1 {
 }
 
 .top-nav-link.is-active {
-  background: var(--color-link-bg);
-  color: var(--color-link);
+  background: var(--color-link);
+  color: white;
 }
 
 .top-nav-logout {
@@ -169,7 +169,7 @@ header h1 {
   min-height: 30px;
   padding: 6px 10px;
   border: 1px solid var(--color-danger-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
@@ -1143,7 +1143,7 @@ dialog.text-viewer-dialog[open] {
   padding: 14px !important;
   overflow: visible !important;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1;
 }
 
 .text-viewer-code code {
@@ -1544,4 +1544,33 @@ dialog.text-viewer-dialog[open] {
 
 .file-action-delete:hover {
   text-decoration: underline;
+}
+
+.text-viewer-code.is-numbered pre {
+  counter-reset: text-viewer-line;
+}
+
+.text-viewer-code.is-numbered .line {
+  display: block;
+  min-height: 1em;
+  padding-left: 4.5em;
+  position: relative;
+}
+
+.text-viewer-code.is-numbered .line::before {
+  content: counter(text-viewer-line);
+  counter-increment: text-viewer-line;
+  position: absolute;
+  left: 0;
+  width: 3.25em;
+  padding-right: 1em;
+  color: var(--color-text-muted);
+  text-align: right;
+  user-select: none;
+  opacity: 0.7;
+}
+
+.text-viewer-code.is-numbered pre:not(.shiki) {
+  counter-reset: text-viewer-line;
+  white-space: pre;
 }
