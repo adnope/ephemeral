@@ -1,6 +1,9 @@
 package store
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type ItemRepository interface {
 	Create(ctx context.Context, item *Item) (int64, error)
@@ -15,6 +18,7 @@ type ItemRepository interface {
 type SessionRepository interface {
 	Create(ctx context.Context, s *Session) error
 	GetByToken(ctx context.Context, token string) (*Session, error)
+	Refresh(ctx context.Context, token string, expiresAt time.Time) error
 	Delete(ctx context.Context, token string) error
 	PurgeExpired(ctx context.Context) error
 }

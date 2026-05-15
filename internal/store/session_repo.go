@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 )
 
 type sqliteSessionRepo struct {
@@ -36,6 +37,28 @@ func (r *sqliteSessionRepo) GetByToken(ctx context.Context, token string) (*Sess
 		return nil, fmt.Errorf("store.session.GetByToken: %w", err)
 	}
 	return &s, nil
+}
+
+func (r *sqliteSessionRepo) Refresh(ctx context.Context, token string, expiresAt time.Time) error {
+	const q = `
+		UPDATE sessions
+		SET expires_at = ?
+		WHERE token = ?`
+
+	result, err := r.db.ExecContext(ctx, q, expiresAt, token)
+	if err != nil {
+		return fmt.Errorf("store.session.Refresh: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("store.session.Refresh rows: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("store.session.Refresh: session not found")
+	}
+
+	return nil
 }
 
 func (r *sqliteSessionRepo) Delete(ctx context.Context, token string) error {

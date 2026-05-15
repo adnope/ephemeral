@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const sessionCookieName = "session_token"
+
 // GET /login
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	count, err := h.users.Count(r.Context())
@@ -40,7 +42,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 
 	if username == "" || password == "" {
-		http.Redirect(w, r, "/login?error=missing+credentials", http.StatusSeeOther)
+		redirectLoginError(w, r, "missing+credentials")
 		return
 	}
 
@@ -52,47 +54,35 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if count == 0 {
-		hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
-		if err != nil {
-			h.log.Error("login: hash password", "err", err)
-			http.Error(w, "internal error", http.StatusInternalServerError)
-			return
-		}
-
-		user := &store.User{
-			Username:     username,
-			PasswordHash: string(hash),
-		}
-		if _, err := h.users.Create(r.Context(), user); err != nil {
-			h.log.Error("login: create user", "err", err)
-			http.Redirect(w, r, "/login?error=user+creation+failed", http.StatusSeeOther)
+		if err := h.createInitialUser(r, username, password); err != nil {
+			h.log.Error("login: create initial user", "err", err)
+			redirectLoginError(w, r, "user+creation+failed")
 			return
 		}
 	}
 
 	user, err := h.users.GetByUsername(r.Context(), username)
 	if err != nil {
-		http.Redirect(w, r, "/login?error=invalid+credentials", http.StatusSeeOther)
+		redirectLoginError(w, r, "invalid+credentials")
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		http.Redirect(w, r, "/login?error=invalid+credentials", http.StatusSeeOther)
+		redirectLoginError(w, r, "invalid+credentials")
 		return
 	}
 
-	tokenBytes := make([]byte, 32)
-	if _, err := rand.Read(tokenBytes); err != nil {
+	token, err := generateSessionToken()
+	if err != nil {
 		h.log.Error("login: generate token", "err", err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	token := hex.EncodeToString(tokenBytes)
 
 	session := &store.Session{
 		Token:     token,
 		UserID:    user.ID,
-		ExpiresAt: time.Now().Add(30 * 24 * time.Hour), // 30 days
+		ExpiresAt: time.Now().Add(h.sessionTTL),
 	}
 
 	if err := h.sessions.Create(r.Context(), session); err != nil {
@@ -101,35 +91,69 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_token",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   30 * 24 * 60 * 60, // 30 days
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	})
-
+	http.SetCookie(w, newSessionCookie(token, h.sessionTTL))
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // POST /logout
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("session_token")
+	cookie, err := r.Cookie(sessionCookieName)
 	if err == nil {
 		if delErr := h.sessions.Delete(r.Context(), cookie.Value); delErr != nil {
 			h.log.Error("logout: delete session", "err", delErr)
 		}
 	}
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_token",
+	http.SetCookie(w, expiredSessionCookie())
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+func (h *Handler) createInitialUser(r *http.Request, username string, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return err
+	}
+
+	user := &store.User{
+		Username:     username,
+		PasswordHash: string(hash),
+	}
+
+	_, err = h.users.Create(r.Context(), user)
+	return err
+}
+
+func generateSessionToken() (string, error) {
+	tokenBytes := make([]byte, 32)
+	if _, err := rand.Read(tokenBytes); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(tokenBytes), nil
+}
+
+func newSessionCookie(token string, ttl time.Duration) *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(ttl.Seconds()),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func expiredSessionCookie() *http.Cookie {
+	return &http.Cookie{
+		Name:     sessionCookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-	})
+	}
+}
 
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+func redirectLoginError(w http.ResponseWriter, r *http.Request, message string) {
+	http.Redirect(w, r, "/login?error="+message, http.StatusSeeOther)
 }

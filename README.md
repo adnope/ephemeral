@@ -69,6 +69,7 @@ Environment variables:
 PORT=8080
 DATA_DIR=./data
 SESSION_SECRET=change_me
+SESSION_TTL=30d
 ```
 
 Create local env file:

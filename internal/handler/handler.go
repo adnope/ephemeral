@@ -3,6 +3,7 @@ package handler
 import (
 	"html/template"
 	"log/slog"
+	"time"
 
 	"github.com/adnope/ephemeral/internal/bodyindex"
 	"github.com/adnope/ephemeral/internal/media"
@@ -11,15 +12,16 @@ import (
 )
 
 type Handler struct {
-	store     store.ItemRepository
-	sessions  store.SessionRepository
-	users     store.UserRepository
-	broker    *sse.Broker
-	media     *media.Pool
-	tmpl      *template.Template
-	dataDir   string
-	log       *slog.Logger
-	bodyIndex *bodyindex.Indexer
+	store      store.ItemRepository
+	sessions   store.SessionRepository
+	users      store.UserRepository
+	broker     *sse.Broker
+	media      *media.Pool
+	tmpl       *template.Template
+	dataDir    string
+	log        *slog.Logger
+	bodyIndex  *bodyindex.Indexer
+	sessionTTL time.Duration
 }
 
 func NewHandler(
@@ -31,17 +33,19 @@ func NewHandler(
 	bodyIndexer *bodyindex.Indexer,
 	tmpl *template.Template,
 	dataDir string,
+	sessionTTL time.Duration,
 	log *slog.Logger,
 ) *Handler {
 	return &Handler{
-		store:     itemRepo,
-		sessions:  sessionRepo,
-		users:     userRepo,
-		broker:    broker,
-		media:     mediaPool,
-		bodyIndex: bodyIndexer,
-		tmpl:      tmpl,
-		dataDir:   dataDir,
-		log:       log,
+		store:      itemRepo,
+		sessions:   sessionRepo,
+		users:      userRepo,
+		broker:     broker,
+		media:      mediaPool,
+		bodyIndex:  bodyIndexer,
+		tmpl:       tmpl,
+		dataDir:    dataDir,
+		log:        log,
+		sessionTTL: sessionTTL,
 	}
 }

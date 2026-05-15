@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Config struct {
 	Port          int
 	DataDir       string
 	SessionSecret string
+	SessionTTL    time.Duration
 }
 
 func Load() (*Config, error) {
@@ -17,6 +20,7 @@ func Load() (*Config, error) {
 		Port:          8080,
 		DataDir:       "./data",
 		SessionSecret: "",
+		SessionTTL:    30 * 24 * time.Hour,
 	}
 
 	if v := os.Getenv("PORT"); v != "" {
@@ -35,6 +39,17 @@ func Load() (*Config, error) {
 		cfg.SessionSecret = v
 	} else {
 		cfg.SessionSecret = "default-secret"
+	}
+
+	if v := os.Getenv("SESSION_TTL"); v != "" {
+		ttl, err := parseDurationWithDays(v)
+		if err != nil {
+			return nil, fmt.Errorf("config: invalid SESSION_TTL %q: %w", v, err)
+		}
+		if ttl < time.Minute {
+			return nil, fmt.Errorf("config: SESSION_TTL must be at least 1 minute")
+		}
+		cfg.SessionTTL = ttl
 	}
 
 	dirs := []string{
@@ -57,4 +72,18 @@ func (c *Config) DBPath() string {
 
 func (c *Config) UploadDir() string {
 	return c.DataDir + "/uploads"
+}
+
+func parseDurationWithDays(value string) (time.Duration, error) {
+	value = strings.TrimSpace(value)
+	if before, ok := strings.CutSuffix(value, "d"); ok {
+		daysRaw := before
+		days, err := strconv.Atoi(daysRaw)
+		if err != nil {
+			return 0, err
+		}
+		return time.Duration(days) * 24 * time.Hour, nil
+	}
+
+	return time.ParseDuration(value)
 }

@@ -80,6 +80,7 @@ func main() {
 		bodyIndexer,
 		tmpl,
 		cfg.DataDir,
+		cfg.SessionTTL,
 		logger,
 	)
 
@@ -91,7 +92,7 @@ func main() {
 
 	r.Use(mw.RequestLogger(logger))
 	r.Use(mw.RateLimit(100, time.Minute))
-	r.Use(mw.SessionAuth(sessionRepo))
+	r.Use(mw.SessionAuth(sessionRepo, cfg.SessionTTL))
 
 	staticSubFS, err := fs.Sub(web.FS, "static")
 	if err != nil {
@@ -117,8 +118,13 @@ func main() {
 	r.Post("/api/logout", h.Logout)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Hour)
+		if err := sessionRepo.PurgeExpired(context.Background()); err != nil {
+			logger.Error("session purge failed", "err", err)
+		}
+
+		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
+
 		for range ticker.C {
 			if err := sessionRepo.PurgeExpired(context.Background()); err != nil {
 				logger.Error("session purge failed", "err", err)
