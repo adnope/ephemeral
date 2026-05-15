@@ -174,6 +174,39 @@ header h1 {
   color: var(--color-danger);
 }
 
+.top-nav-link,
+.top-nav-logout-btn {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.top-nav-link:hover {
+  background: rgb(0 102 204 / 20%);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.18);
+}
+
+.top-nav-link:active,
+.top-nav-logout-btn:active {
+  transform: translateY(1px);
+}
+
+.top-nav-link.is-active:hover {
+  background: var(--color-link);
+  color: var(--color-link-bg);
+  box-shadow: none;
+}
+
+.top-nav-logout-btn:hover {
+  border-color: #a40e26;
+  background: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.22);
+}
+
 .input-form {
   gap: 10px;
 }
@@ -254,18 +287,21 @@ header h1 {
 .file-action-link {
   color: var(--color-link);
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1;
 }
 
 .file-action-link:hover {
   text-decoration: underline;
 }
 
-.file-action-link:focus-visible,
-.video-thumb-card:focus-visible,
-.video-placeholder-card:focus-visible {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+.file-action-delete {
+  color: var(--color-danger-bg);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.file-action-delete:hover {
+  text-decoration: underline;
 }
 
 .gallery-grid {
@@ -493,6 +529,51 @@ dialog::backdrop {
   margin-bottom: 10px;
 }
 
+.media-dialog-actions .btn,
+.media-dialog-nav .btn {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.media-dialog-actions .btn:hover,
+.media-dialog-nav .btn:hover {
+  background: #005bb8;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
+}
+
+.media-dialog-actions .media-dialog-delete-btn {
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.media-dialog-actions .media-dialog-delete-btn:hover,
+.media-dialog-actions .media-dialog-delete-btn:focus-visible {
+  background: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(207, 34, 46, 0.22);
+}
+
+.media-dialog-actions .btn:active,
+.media-dialog-nav .btn:active {
+  transform: translateY(1px);
+}
+
+.media-dialog-delete-btn {
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.media-dialog-delete-btn:hover {
+  background: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(207, 34, 46, 0.22);
+}
+
 .media-dialog-nav {
   width: 100%;
   justify-content: space-between;
@@ -579,10 +660,6 @@ dialog::backdrop {
   line-height: 1;
 }
 
-.composer-send-btn:hover {
-  background: #005bb8;
-}
-
 .composer-input {
   flex: 1;
   width: auto;
@@ -600,10 +677,39 @@ dialog::backdrop {
   max-height: 120px;
 }
 
+.composer-icon-btn,
+.composer-send-btn,
+.composer-input {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.composer-icon-btn:hover {
+  background: rgb(0 102 204 / 10%);
+  border-color: rgb(0 102 204 / 35%);
+  color: var(--color-link);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.composer-icon-btn:active,
+.composer-send-btn:active {
+  transform: translateY(1px);
+}
+
 .composer-input:focus {
   border-color: var(--color-link);
   outline: none;
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+.composer-send-btn:hover {
+  background: #005bb8;
+  border-color: #005bb8;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
 }
 
 .visually-hidden-file-input {
@@ -639,35 +745,6 @@ dialog::backdrop {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
-}
-
-.upload-queue-header {
-  width: 100%;
-  display: flex;
-  align-items: stretch;
-  gap: 4px;
-  padding: 0;
-  background: var(--color-surface);
-}
-
-.upload-queue-toggle {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--color-text);
-  text-align: left;
-}
-
-.upload-queue-toggle:hover,
-.upload-queue-close:hover {
-  background: var(--color-hover);
 }
 
 .upload-queue-close {
@@ -761,6 +838,12 @@ dialog::backdrop {
   max-height: min(420px, 45vh);
   overflow-y: auto;
   padding: 8px;
+  opacity: 1;
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    padding-top 220ms ease,
+    padding-bottom 220ms ease;
 }
 
 .upload-queue-item {
@@ -848,6 +931,41 @@ dialog::backdrop {
   .upload-queue-body {
     max-height: min(360px, 45vh);
   }
+}
+
+.upload-queue {
+  transition:
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.upload-queue:hover {
+  border-color: rgb(0 102 204 / 25%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.upload-queue-toggle,
+.upload-queue-close {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.upload-queue-toggle:hover {
+  background: rgb(0 102 204 / 8%);
+}
+
+.upload-queue-close:hover {
+  background: rgb(214 53 64 / 10%);
+  color: #a40e26;
+}
+
+.upload-queue-toggle:active,
+.upload-queue-close:active {
+  transform: translateY(1px);
 }
 
 .media-dialog-meta {
@@ -1036,18 +1154,43 @@ button.file-action-link {
 .gallery-file-actions {
   max-width: 100%;
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
   justify-content: center;
   gap: 4px 8px;
-  margin-top: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .gallery-file-actions .file-action-link {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
   border: 0;
   background: transparent;
+  color: var(--color-link);
+  cursor: pointer;
+  font: inherit;
   font-size: 0.9em;
+  font-weight: 600;
   line-height: 1.3;
+  text-decoration: none;
+}
+
+.gallery-file-actions .file-action-link:hover,
+.gallery-file-actions .file-action-link:focus-visible {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  outline: none;
+}
+
+.gallery-file-actions .file-action-delete {
+  color: var(--color-danger-bg);
 }
 
 dialog.text-viewer-dialog {
@@ -1508,7 +1651,7 @@ dialog.text-viewer-dialog[open] {
 }
 
 .bubble-action-menu-item.is-danger {
-  color: var(--color-danger);
+  color: var(--color-danger-bg);
   font-weight: 600;
 }
 
@@ -1528,22 +1671,6 @@ dialog.text-viewer-dialog[open] {
     right: auto;
     left: 0;
   }
-}
-
-.media-dialog-delete-btn {
-  background: var(--color-danger);
-}
-
-.media-dialog-delete-btn:hover {
-  background: #a40e26;
-}
-
-.file-action-delete {
-  color: var(--color-danger);
-}
-
-.file-action-delete:hover {
-  text-decoration: underline;
 }
 
 .text-viewer-code.is-numbered pre {
@@ -1573,4 +1700,246 @@ dialog.text-viewer-dialog[open] {
 .text-viewer-code.is-numbered pre:not(.shiki) {
   counter-reset: text-viewer-line;
   white-space: pre;
+}
+
+.text-viewer-actions .btn {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.text-viewer-actions .btn:hover {
+  background: #005bb8;
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
+}
+
+.text-viewer-actions .btn:active {
+  transform: translateY(1px);
+}
+
+.history-search-input,
+.history-search-date-field select {
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.history-search-input:focus,
+.history-search-date-field select:focus {
+  border-color: var(--color-link);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+.history-search-btn {
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.history-search-btn:hover {
+  background: #005bb8;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
+}
+
+.history-search-btn:active {
+  transform: translateY(1px);
+}
+
+.history-filter-pill:not(.is-active) {
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.history-filter-pill:not(.is-active):hover {
+  border-color: rgb(0 102 204 / 35%);
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.history-filter-pill:not(.is-active):active {
+  transform: translateY(1px);
+}
+
+.gallery-item {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+  transform-origin: center;
+}
+
+.gallery-item:hover {
+  transform: scale(0.975);
+  border-color: rgb(0 102 204 / 35%);
+  box-shadow: 0 4px 14px rgba(0, 102, 204, 0.12);
+}
+
+.upload-queue-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px;
+  border-bottom: 1px solid var(--color-border);
+  background: linear-gradient(
+    180deg,
+    var(--color-surface),
+    var(--color-surface-muted)
+  );
+}
+
+.upload-queue-toggle {
+  min-width: 0;
+  min-height: 42px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.upload-queue-toggle:hover {
+  background: rgb(0 102 204 / 8%);
+  box-shadow: inset 0 0 0 1px rgb(0 102 204 / 10%);
+}
+
+.upload-queue-close {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.upload-queue-close:hover {
+  background: rgb(214 53 64 / 12%);
+  color: #a40e26;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.12);
+}
+
+.upload-queue-toggle:active,
+.upload-queue-close:active {
+  transform: translateY(1px);
+}
+
+.upload-queue-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-weight: 700;
+}
+
+.upload-queue-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.upload-queue-chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  transition: transform 180ms ease;
+}
+
+.upload-queue:not(.is-collapsed) .upload-queue-chevron {
+  transform: rotate(180deg);
+}
+
+.text-viewer-delete-btn {
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.text-viewer-delete-btn:hover:not(:disabled),
+.text-viewer-delete-btn:focus-visible:not(:disabled) {
+  background: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.22);
+}
+
+.text-viewer-delete-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.login-field input,
+.login-submit,
+.login-password-toggle {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.login-field input:focus {
+  border-color: var(--color-link);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+.login-submit:hover {
+  background: #005bb8;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
+}
+
+.login-submit:active,
+.login-password-toggle:active {
+  transform: translateY(1px);
+  transform: translateY(-55%);
+}
+
+.login-password-toggle:hover {
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.login-password-toggle:focus-visible {
+  outline: none;
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
 }

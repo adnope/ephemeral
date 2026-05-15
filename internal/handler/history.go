@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	historyPageSize   = 50
+	historyPageSize   = 100
 	historyDateLayout = "2006-01-02"
 )
 

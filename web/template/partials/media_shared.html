@@ -97,6 +97,16 @@
       </button>
 
       <a id="textViewerDownload" href="#" download class="btn">Download</a>
+      <button
+        type="button"
+        id="textViewerDelete"
+        class="btn text-viewer-delete-btn"
+        disabled
+        onclick="deleteCurrentTextViewerItem()"
+      >
+        Delete
+      </button>
+
       <button type="button" class="btn" onclick="closeTextViewer()">
         Close
       </button>
@@ -280,6 +290,7 @@
     const title = requireElement("textViewerTitle");
     const meta = requireElement("textViewerMeta");
     const download = requireElement("textViewerDownload");
+    const deleteButton = requireElement("textViewerDelete");
     const language = requireElement("textViewerLanguage");
     const codeRoot = requireElement("textViewerCode");
     requireElement("textViewerCopyLabel").textContent = "Copy";
@@ -287,6 +298,8 @@
     title.textContent = "Loading preview...";
     meta.textContent = "";
     download.removeAttribute("href");
+    deleteButton.disabled = true;
+    deleteButton.removeAttribute("data-delete-id");
     codeRoot.classList.remove("is-numbered");
     language.value = "auto";
     setStatus("Loading...");
@@ -325,6 +338,8 @@
 
       download.href = preview.download_url;
       download.download = preview.filename || "";
+      deleteButton.disabled = false;
+      deleteButton.dataset.deleteId = String(preview.id);
 
       await renderPreview();
     } catch (error) {
@@ -333,6 +348,8 @@
       meta.textContent = "";
       codeRoot.textContent = "Could not load text preview.";
       setStatus("Error");
+      deleteButton.disabled = true;
+      deleteButton.removeAttribute("data-delete-id");
     }
   };
 
@@ -374,6 +391,17 @@
         label.textContent = "Copy";
       }, 1200);
     }
+  };
+
+  window.deleteCurrentTextViewerItem = async function () {
+    const button = requireElement("textViewerDelete");
+    if (!(button instanceof HTMLElement)) return;
+
+    const rawID = button.dataset.deleteId;
+    const id = Number.parseInt(rawID || "", 10);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    await window.deleteItem(id);
   };
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -478,6 +506,43 @@
     if (!Number.isFinite(id) || id <= 0) return;
 
     window.deleteItem(id);
+  };
+
+  window.removeItemFromDOM = function (id) {
+    const chatItem = document.getElementById(`item-${id}`);
+    if (chatItem) chatItem.remove();
+
+    const historyItem = document.getElementById(`history-item-${id}`);
+    if (historyItem) historyItem.remove();
+  };
+
+  window.deleteItem = async function (id) {
+    const confirmed = window.confirm("Delete this item forever?");
+    if (!confirmed) return;
+
+    document.querySelectorAll("dialog[open]").forEach((dialog) => {
+      if (dialog instanceof HTMLDialogElement) dialog.close();
+    });
+
+    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok && response.status !== 404) {
+      window.alert("Failed to delete item.");
+      return;
+    }
+
+    window.removeItemFromDOM(id);
+  };
+
+  window.deleteItemFromElement = function (element) {
+    if (!(element instanceof HTMLElement)) return;
+
+    const id = Number.parseInt(element.dataset.deleteId || "", 10);
+    if (!Number.isFinite(id) || id <= 0) return;
+
+    void window.deleteItem(id);
   };
 </script>
 {{end}}

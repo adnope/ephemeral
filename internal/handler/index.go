@@ -8,7 +8,7 @@ import (
 	"github.com/adnope/ephemeral/internal/store"
 )
 
-const chatPageSize = 50
+const chatPageSize = 100
 
 // GET /
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
