@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adnope/ephemeral/internal/store"
+	"github.com/adnope/ephemeral/internal/domain"
 )
 
 type contextKey string
@@ -20,7 +20,7 @@ var publicPaths = map[string]struct{}{
 	"/manifest.json": {},
 }
 
-func SessionAuth(repo store.SessionRepository, sessionTTL time.Duration) func(http.Handler) http.Handler {
+func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration) func(http.Handler) http.Handler {
 	if sessionTTL < time.Minute {
 		sessionTTL = time.Minute
 	}
@@ -80,8 +80,8 @@ func SessionAuth(repo store.SessionRepository, sessionTTL time.Duration) func(ht
 	}
 }
 
-func GetSession(ctx context.Context) *store.Session {
-	s, _ := ctx.Value(ctxKeySession).(*store.Session)
+func GetSession(ctx context.Context) *domain.Session {
+	s, _ := ctx.Value(ctxKeySession).(*domain.Session)
 	return s
 }
 

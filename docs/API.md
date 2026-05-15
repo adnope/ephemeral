@@ -21,6 +21,23 @@ SESSION_TTL=24h
 SESSION_TTL=2h
 ```
 
+## Runtime Limits
+
+These values are configured through environment variables:
+
+```env
+CHAT_PAGE_SIZE=100
+HISTORY_PAGE_SIZE=100
+SEARCH_RESULT_LIMIT=30
+MAX_UPLOAD_SIZE=2GiB
+TEXT_PREVIEW_MAX=10MiB
+BODY_INDEX_MAX=20MiB
+MEDIA_WORKER_COUNT=1
+UPLOAD_CONCURRENCY=1
+```
+
+Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
+
 ### `GET /login`
 
 Renders the login page.
@@ -130,10 +147,11 @@ Returns the rendered `item_partial` HTML for the uploaded item.
 
 - Detects MIME type.
 - Stores the file under the upload directory.
+- Rejects requests above `MAX_UPLOAD_SIZE`.
 - Creates an `items` database row.
 - For images/videos, metadata extraction runs asynchronously.
 - For videos, thumbnail generation runs asynchronously.
-- For text/code-like files, body content is indexed into SQLite FTS5 for history body search.
+- For text/code-like files up to `BODY_INDEX_MAX`, body content is indexed into SQLite FTS5 for history body search.
 
 **Side effects**
 
@@ -178,6 +196,7 @@ Returns the file content using `http.ServeFile`.
 Returns bounded text/code file content for the in-app preview dialog.
 
 Only supports generic file items that are text/code-like and below the preview size limit.
+The preview size limit is `TEXT_PREVIEW_MAX`.
 
 **Response**
 
@@ -247,6 +266,7 @@ Main chat interface.
 | `cursor` | integer | Load items with `id < cursor` |
 
 Used for cursor-based pagination and infinite scrolling.
+The page size is `CHAT_PAGE_SIZE`.
 
 When requested via HTMX, returns only the `items_partial` HTML.
 
@@ -281,6 +301,7 @@ Supported `recent` values:
 ```
 
 When requested via HTMX, returns only the `history_items` HTML.
+The page size is `HISTORY_PAGE_SIZE`.
 
 ---
 
@@ -297,6 +318,7 @@ Searches existing items using the older item FTS search endpoint.
 **Response**
 
 Returns rendered `items_partial` HTML.
+Returns at most `SEARCH_RESULT_LIMIT` items.
 
 ## Real-Time Updates
 

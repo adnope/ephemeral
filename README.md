@@ -68,9 +68,18 @@ Environment variables:
 ```env
 PORT=8080
 DATA_DIR=./data
-SESSION_SECRET=change_me
 SESSION_TTL=30d
+CHAT_PAGE_SIZE=100
+HISTORY_PAGE_SIZE=100
+SEARCH_RESULT_LIMIT=30
+MAX_UPLOAD_SIZE=2GiB
+TEXT_PREVIEW_MAX=10MiB
+BODY_INDEX_MAX=20MiB
+MEDIA_WORKER_COUNT=1
+UPLOAD_CONCURRENCY=1
 ```
+
+Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
 
 Create local env file:
 

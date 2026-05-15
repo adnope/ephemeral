@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -9,18 +10,32 @@ import (
 )
 
 type Config struct {
-	Port          int
-	DataDir       string
-	SessionSecret string
-	SessionTTL    time.Duration
+	Port                int
+	DataDir             string
+	SessionTTL          time.Duration
+	ChatPageSize        int
+	HistoryPageSize     int
+	SearchResultLimit   int
+	MaxUploadBytes      int64
+	TextPreviewMaxBytes int64
+	BodyIndexMaxBytes   int64
+	MediaWorkerCount    int
+	UploadConcurrency   int
 }
 
 func Load() (*Config, error) {
 	cfg := &Config{
-		Port:          8080,
-		DataDir:       "./data",
-		SessionSecret: "",
-		SessionTTL:    30 * 24 * time.Hour,
+		Port:                8080,
+		DataDir:             "./data",
+		SessionTTL:          30 * 24 * time.Hour,
+		ChatPageSize:        100,
+		HistoryPageSize:     100,
+		SearchResultLimit:   30,
+		MaxUploadBytes:      2 << 30,
+		TextPreviewMaxBytes: 10 << 20,
+		BodyIndexMaxBytes:   20 << 20,
+		MediaWorkerCount:    1,
+		UploadConcurrency:   1,
 	}
 
 	if v := os.Getenv("PORT"); v != "" {
@@ -35,12 +50,6 @@ func Load() (*Config, error) {
 		cfg.DataDir = v
 	}
 
-	if v := os.Getenv("SESSION_SECRET"); v != "" {
-		cfg.SessionSecret = v
-	} else {
-		cfg.SessionSecret = "default-secret"
-	}
-
 	if v := os.Getenv("SESSION_TTL"); v != "" {
 		ttl, err := parseDurationWithDays(v)
 		if err != nil {
@@ -50,6 +59,31 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("config: SESSION_TTL must be at least 1 minute")
 		}
 		cfg.SessionTTL = ttl
+	}
+
+	if err := loadPositiveInt("CHAT_PAGE_SIZE", &cfg.ChatPageSize); err != nil {
+		return nil, err
+	}
+	if err := loadPositiveInt("HISTORY_PAGE_SIZE", &cfg.HistoryPageSize); err != nil {
+		return nil, err
+	}
+	if err := loadPositiveInt("SEARCH_RESULT_LIMIT", &cfg.SearchResultLimit); err != nil {
+		return nil, err
+	}
+	if err := loadByteSize("MAX_UPLOAD_SIZE", &cfg.MaxUploadBytes); err != nil {
+		return nil, err
+	}
+	if err := loadByteSize("TEXT_PREVIEW_MAX", &cfg.TextPreviewMaxBytes); err != nil {
+		return nil, err
+	}
+	if err := loadByteSize("BODY_INDEX_MAX", &cfg.BodyIndexMaxBytes); err != nil {
+		return nil, err
+	}
+	if err := loadPositiveInt("MEDIA_WORKER_COUNT", &cfg.MediaWorkerCount); err != nil {
+		return nil, err
+	}
+	if err := loadPositiveInt("UPLOAD_CONCURRENCY", &cfg.UploadConcurrency); err != nil {
+		return nil, err
 	}
 
 	dirs := []string{
@@ -74,6 +108,42 @@ func (c *Config) UploadDir() string {
 	return c.DataDir + "/uploads"
 }
 
+func loadPositiveInt(name string, target *int) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+	if parsed <= 0 {
+		return fmt.Errorf("config: %s must be positive", name)
+	}
+
+	*target = parsed
+	return nil
+}
+
+func loadByteSize(name string, target *int64) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := parseByteSize(value)
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+	if parsed <= 0 {
+		return fmt.Errorf("config: %s must be positive", name)
+	}
+
+	*target = parsed
+	return nil
+}
+
 func parseDurationWithDays(value string) (time.Duration, error) {
 	value = strings.TrimSpace(value)
 	if before, ok := strings.CutSuffix(value, "d"); ok {
@@ -86,4 +156,57 @@ func parseDurationWithDays(value string) (time.Duration, error) {
 	}
 
 	return time.ParseDuration(value)
+}
+
+func parseByteSize(value string) (int64, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, fmt.Errorf("empty size")
+	}
+
+	numberPart := value
+	unitPart := ""
+	for i, r := range value {
+		if (r < '0' || r > '9') && r != '.' {
+			numberPart = strings.TrimSpace(value[:i])
+			unitPart = strings.TrimSpace(value[i:])
+			break
+		}
+	}
+
+	if numberPart == "" {
+		return 0, fmt.Errorf("missing size value")
+	}
+
+	number, err := strconv.ParseFloat(numberPart, 64)
+	if err != nil {
+		return 0, err
+	}
+	if number <= 0 {
+		return 0, fmt.Errorf("size must be positive")
+	}
+
+	multiplier, ok := byteSizeMultipliers[strings.ToLower(unitPart)]
+	if !ok {
+		return 0, fmt.Errorf("unsupported size unit %q", unitPart)
+	}
+
+	size := number * float64(multiplier)
+	if size > math.MaxInt64 {
+		return 0, fmt.Errorf("size overflows int64")
+	}
+	return int64(size), nil
+}
+
+var byteSizeMultipliers = map[string]int64{
+	"":    1,
+	"b":   1,
+	"kb":  1000,
+	"mb":  1000 * 1000,
+	"gb":  1000 * 1000 * 1000,
+	"tb":  1000 * 1000 * 1000 * 1000,
+	"kib": 1 << 10,
+	"mib": 1 << 20,
+	"gib": 1 << 30,
+	"tib": 1 << 40,
 }

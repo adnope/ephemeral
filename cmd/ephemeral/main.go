@@ -21,13 +21,15 @@ import (
 	"github.com/adnope/ephemeral/internal/migrations"
 	"github.com/adnope/ephemeral/web"
 
-	"github.com/adnope/ephemeral/internal/bodyindex"
 	"github.com/adnope/ephemeral/internal/config"
-	"github.com/adnope/ephemeral/internal/handler"
-	"github.com/adnope/ephemeral/internal/media"
+	httpdelivery "github.com/adnope/ephemeral/internal/delivery/http"
+	"github.com/adnope/ephemeral/internal/infrastructure/filesystem"
+	"github.com/adnope/ephemeral/internal/infrastructure/media"
+	"github.com/adnope/ephemeral/internal/infrastructure/search"
+	"github.com/adnope/ephemeral/internal/infrastructure/sqlite"
+	"github.com/adnope/ephemeral/internal/infrastructure/sse"
 	mw "github.com/adnope/ephemeral/internal/middleware"
-	"github.com/adnope/ephemeral/internal/sse"
-	"github.com/adnope/ephemeral/internal/store"
+	"github.com/adnope/ephemeral/internal/usecase"
 )
 
 func main() {
@@ -48,22 +50,27 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := store.OpenDB(cfg.DBPath(), string(migrationSQL))
+	db, err := sqlite.OpenDB(cfg.DBPath(), string(migrationSQL))
 	if err != nil {
 		logger.Error("database init failed", "err", err)
 		os.Exit(1)
 	}
 	defer func() { _ = db.Close() }()
 
-	itemRepo := store.NewItemRepo(db)
-	sessionRepo := store.NewSessionRepo(db)
-	userRepo := store.NewUserRepo(db)
+	itemRepo := sqlite.NewItemRepository(db)
+	sessionRepo := sqlite.NewSessionRepository(db)
+	userRepo := sqlite.NewUserRepository(db)
 
 	broker := sse.NewBroker()
 
-	mediaPool := media.NewPool(itemRepo, broker)
-
-	bodyIndexer := bodyindex.New(db, cfg.DataDir, logger)
+	uploadStorage := filesystem.NewUploadStorage(cfg.DataDir)
+	mediaClassifier := media.NewClassifier()
+	mediaPool, err := media.NewPool(itemRepo, broker, cfg.MediaWorkerCount)
+	if err != nil {
+		logger.Error("media pool init failed", "err", err)
+		os.Exit(1)
+	}
+	searchIndexer := search.NewIndexer(db, cfg.DataDir, cfg.BodyIndexMaxBytes, logger)
 
 	tmpl, err := parseTemplates()
 	if err != nil {
@@ -71,17 +78,33 @@ func main() {
 		os.Exit(1)
 	}
 
-	h := handler.NewHandler(
+	itemUseCase := usecase.NewItemUseCase(
 		itemRepo,
-		sessionRepo,
-		userRepo,
 		broker,
 		mediaPool,
-		bodyIndexer,
-		tmpl,
-		cfg.DataDir,
-		cfg.SessionTTL,
+		searchIndexer,
+		uploadStorage,
+		mediaClassifier,
 		logger,
+	)
+	historyUseCase := usecase.NewHistoryUseCase(searchIndexer)
+	authUseCase := usecase.NewAuthUseCase(userRepo, sessionRepo, cfg.SessionTTL)
+
+	h := httpdelivery.NewHandler(
+		itemUseCase,
+		historyUseCase,
+		authUseCase,
+		broker,
+		tmpl,
+		logger,
+		httpdelivery.HandlerSettings{
+			ChatPageSize:        cfg.ChatPageSize,
+			HistoryPageSize:     cfg.HistoryPageSize,
+			SearchResultLimit:   cfg.SearchResultLimit,
+			MaxUploadBytes:      cfg.MaxUploadBytes,
+			TextPreviewMaxBytes: cfg.TextPreviewMaxBytes,
+			UploadConcurrency:   cfg.UploadConcurrency,
+		},
 	)
 
 	r := chi.NewRouter()
