@@ -3,7 +3,6 @@ package media
 import (
 	"context"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -91,13 +90,13 @@ func (p *Pool) process(job Job) error {
 		}
 		meta = m
 
-		if err := generateThumbnail(ctx, job.FilePath); err != nil {
+		thumbRelPath, err := generateThumbnail(ctx, job.FilePath)
+		if err != nil {
 			slog.Warn("thumbnail generation skipped", "path", job.FilePath, "err", err)
 			break
 		}
 
-		ext := filepath.Ext(job.FilePath)
-		meta.Thumb = strings.TrimSuffix(filepath.Base(job.FilePath), ext) + "_thumb.jpg"
+		meta.Thumb = thumbRelPath
 	}
 
 	if err := p.repo.UpdateMetadata(ctx, job.ItemID, meta); err != nil {

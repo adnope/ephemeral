@@ -2,6 +2,21 @@
 
 Ephemeral is a lightweight self-hosted web app for quickly sharing text messages and files across devices.
 
+<table>
+  <tr>
+    <td width="50%" align="center">
+      <img src="./docs/screenshots/chat.png" alt="Chat page" width="100%" />
+      <br />
+      <sub>Chat page</sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="./docs/screenshots/history.png" alt="History page" width="100%" />
+      <br />
+      <sub>History page</sub>
+    </td>
+  </tr>
+</table>
+
 ## Table of Contents
 
 - [Ephemeral](#ephemeral)

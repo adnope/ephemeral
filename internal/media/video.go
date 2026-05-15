@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -73,9 +74,17 @@ func extractVideoMeta(ctx context.Context, path string, mimeType string) (store.
 	return probe.toMetadata(mimeType), nil
 }
 
-func generateThumbnail(ctx context.Context, path string) error {
+func generateThumbnail(ctx context.Context, path string) (string, error) {
 	ext := filepath.Ext(path)
-	thumbPath := strings.TrimSuffix(path, ext) + "_thumb.jpg"
+	baseName := strings.TrimSuffix(filepath.Base(path), ext)
+
+	thumbName := baseName + "_thumb.jpg"
+	thumbDir := filepath.Join(filepath.Dir(path), "thumbs")
+	thumbPath := filepath.Join(thumbDir, thumbName)
+
+	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
+		return "", fmt.Errorf("mkdir thumbnail dir: %w", err)
+	}
 
 	args := []string{
 		"-hide_banner",
@@ -95,7 +104,8 @@ func generateThumbnail(ctx context.Context, path string) error {
 
 	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg thumbnail: %w", err)
+		return "", fmt.Errorf("ffmpeg thumbnail: %w", err)
 	}
-	return nil
+
+	return filepath.ToSlash(filepath.Join("thumbs", thumbName)), nil
 }
