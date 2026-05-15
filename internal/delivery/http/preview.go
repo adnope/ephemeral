@@ -25,7 +25,7 @@ func (h *Handler) PreviewFile(w http.ResponseWriter, r *http.Request) {
 	rawID := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(rawID, 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "invalid item id", http.StatusBadRequest)
+		writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid item id")
 		return
 	}
 
@@ -33,18 +33,18 @@ func (h *Handler) PreviewFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, usecase.ErrInvalidInput):
-			http.Error(w, "invalid item id", http.StatusBadRequest)
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid item id")
 		case errors.Is(err, usecase.ErrNotFound):
-			http.Error(w, "file not found", http.StatusNotFound)
+			writeJSONError(w, http.StatusNotFound, "not_found", "file not found")
 		case errors.Is(err, usecase.ErrForbidden):
-			http.Error(w, "forbidden", http.StatusForbidden)
+			writeJSONError(w, http.StatusForbidden, "forbidden", "forbidden")
 		case errors.Is(err, usecase.ErrPreviewTooLarge):
-			http.Error(w, "file too large for preview", http.StatusRequestEntityTooLarge)
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file too large for preview")
 		case errors.Is(err, usecase.ErrUnsupportedPreview):
-			http.Error(w, "file type is not previewable as text", http.StatusUnsupportedMediaType)
+			writeJSONError(w, http.StatusUnsupportedMediaType, "unsupported_preview", "file type is not previewable as text")
 		default:
 			h.log.Error("preview: usecase", "item_id", id, "err", err)
-			http.Error(w, "preview failed", http.StatusInternalServerError)
+			writeJSONError(w, http.StatusInternalServerError, "server_error", "preview failed")
 		}
 		return
 	}

@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -34,13 +37,18 @@ func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Hand
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := r.RemoteAddr
+			if skipRateLimit(r) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			key := clientRateLimitKey(r)
 
 			mu.Lock()
-			b, ok := buckets[ip]
+			b, ok := buckets[key]
 			if !ok {
 				b = &bucket{tokens: maxTokens, lastFill: time.Now()}
-				buckets[ip] = b
+				buckets[key] = b
 			}
 
 			elapsed := time.Since(b.lastFill)
@@ -50,8 +58,12 @@ func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Hand
 			}
 
 			if b.tokens <= 0 {
+				retryAfter := window - elapsed
+				if retryAfter < time.Second {
+					retryAfter = time.Second
+				}
 				mu.Unlock()
-				http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+				writeRateLimitExceeded(w, r, retryAfter)
 				return
 			}
 
@@ -61,4 +73,59 @@ func RateLimit(maxTokens int, window time.Duration) func(http.Handler) http.Hand
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+func skipRateLimit(r *http.Request) bool {
+	if strings.HasPrefix(r.URL.Path, "/static/") {
+		return true
+	}
+
+	if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/files/") {
+		return true
+	}
+
+	switch r.URL.Path {
+	case "/api/events", "/favicon.ico", "/manifest.json":
+		return true
+	default:
+		return false
+	}
+}
+
+func clientRateLimitKey(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || host == "" {
+		host = r.RemoteAddr
+	}
+	if host == "" {
+		host = "unknown"
+	}
+
+	return host + ":" + rateLimitClass(r)
+}
+
+func rateLimitClass(r *http.Request) string {
+	switch r.URL.Path {
+	case "/api/auth/state", "/api/login", "/api/logout", "/login":
+		return "auth"
+	default:
+		return "default"
+	}
+}
+
+func writeRateLimitExceeded(w http.ResponseWriter, r *http.Request, retryAfter time.Duration) {
+	seconds := int(retryAfter.Round(time.Second).Seconds())
+	if seconds < 1 {
+		seconds = 1
+	}
+	w.Header().Set("Retry-After", strconv.Itoa(seconds))
+
+	if wantsJSONResponse(r) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"code":"rate_limited","message":"rate limit exceeded"}` + "\n"))
+		return
+	}
+
+	http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 }

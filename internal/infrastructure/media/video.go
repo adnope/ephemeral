@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/adnope/ephemeral/internal/domain"
 )
@@ -75,14 +72,8 @@ func extractVideoMeta(ctx context.Context, path string, mimeType string) (domain
 }
 
 func generateThumbnail(ctx context.Context, path string) (string, error) {
-	ext := filepath.Ext(path)
-	baseName := strings.TrimSuffix(filepath.Base(path), ext)
-
-	thumbName := baseName + "_thumb.jpg"
-	thumbDir := filepath.Join(filepath.Dir(path), "thumbs")
-	thumbPath := filepath.Join(thumbDir, thumbName)
-
-	if err := os.MkdirAll(thumbDir, 0o755); err != nil {
+	thumbPath, thumbRelPath, err := thumbnailPaths(path)
+	if err != nil {
 		return "", fmt.Errorf("mkdir thumbnail dir: %w", err)
 	}
 
@@ -108,5 +99,5 @@ func generateThumbnail(ctx context.Context, path string) (string, error) {
 		return "", fmt.Errorf("ffmpeg thumbnail: %w", err)
 	}
 
-	return filepath.ToSlash(filepath.Join("thumbs", thumbName)), nil
+	return thumbRelPath, nil
 }

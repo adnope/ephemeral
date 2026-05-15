@@ -5,6 +5,24 @@ import (
 	"strconv"
 )
 
+// Items handles GET /api/items.
+func (h *Handler) Items(w http.ResponseWriter, r *http.Request) {
+	cursor, err := parseCursor(r)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid cursor")
+		return
+	}
+
+	page, err := h.items.List(r.Context(), cursor, h.settings.ChatPageSize)
+	if err != nil {
+		h.log.Error("items: list", "err", err)
+		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, pageToResponse(page.Items, page.NextCursor))
+}
+
 // Index handles GET /.
 func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
@@ -33,4 +51,16 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("index: render", "err", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
+}
+
+func parseCursor(r *http.Request) (int64, error) {
+	raw := r.URL.Query().Get("cursor")
+	if raw == "" {
+		return 0, nil
+	}
+	cursor, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || cursor < 0 {
+		return 0, strconv.ErrSyntax
+	}
+	return cursor, nil
 }

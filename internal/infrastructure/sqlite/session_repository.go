@@ -31,12 +31,14 @@ func (r *sessionRepository) GetByToken(ctx context.Context, token string) (*doma
 		WHERE token = ?`
 
 	var session domain.Session
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&session.Token,
-		&session.UserID,
-		&session.CreatedAt,
-		&session.ExpiresAt,
-	)
+	err := retryInterruptedRead(ctx, func() error {
+		return r.db.QueryRowContext(ctx, query, token).Scan(
+			&session.Token,
+			&session.UserID,
+			&session.CreatedAt,
+			&session.ExpiresAt,
+		)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("sqlite session get by token: %w", err)
 	}
@@ -110,12 +112,14 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*d
 		WHERE username = ?`
 
 	var user domain.User
-	err := r.db.QueryRowContext(ctx, query, username).Scan(
-		&user.ID,
-		&user.Username,
-		&user.PasswordHash,
-		&user.CreatedAt,
-	)
+	err := retryInterruptedRead(ctx, func() error {
+		return r.db.QueryRowContext(ctx, query, username).Scan(
+			&user.ID,
+			&user.Username,
+			&user.PasswordHash,
+			&user.CreatedAt,
+		)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("sqlite user get by username: %w", err)
 	}
@@ -126,7 +130,9 @@ func (r *userRepository) Count(ctx context.Context) (int, error) {
 	const query = `SELECT COUNT(*) FROM users`
 
 	var count int
-	if err := r.db.QueryRowContext(ctx, query).Scan(&count); err != nil {
+	if err := retryInterruptedRead(ctx, func() error {
+		return r.db.QueryRowContext(ctx, query).Scan(&count)
+	}); err != nil {
 		return 0, fmt.Errorf("sqlite user count: %w", err)
 	}
 	return count, nil

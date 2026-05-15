@@ -18,7 +18,7 @@
   </dialog>
 
   <img
-    src="{{fileURL .Content}}"
+    src="{{if .Metadata.Thumb}}{{fileURL .Metadata.Thumb}}{{else}}{{fileURL .Content}}{{end}}"
     alt="{{.Filename}}"
     class="bubble-image"
     @click="openMediaDialog($refs.imgDialog_{{.ID}})"

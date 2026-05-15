@@ -598,7 +598,7 @@
 
             const message = document.createElement("p");
             message.className = "message-text";
-            message.textContent = text;
+            this.appendLinkedText(message, text);
 
             const footer = document.createElement("div");
             footer.className = "bubble-footer";
@@ -615,6 +615,60 @@
             bubble.append(message, footer);
 
             return bubble;
+          },
+
+          appendLinkedText(root, text) {
+            const linkPattern =
+              /\b(?:https?:\/\/[^\s<>"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?::\d{2,5})?(?:\/[^\s<>"']*)?)/gi;
+
+            let last = 0;
+            for (const match of text.matchAll(linkPattern)) {
+              const raw = match[0];
+              const start = match.index ?? 0;
+              if (this.shouldSkipLink(text, start)) continue;
+
+              const { link, trailing } = this.splitTrailingLinkPunctuation(raw);
+              if (!link) continue;
+
+              if (start > last) {
+                root.appendChild(document.createTextNode(text.slice(last, start)));
+              }
+
+              const anchor = document.createElement("a");
+              anchor.href = /^https?:\/\//i.test(link) ? link : `https://${link}`;
+              anchor.target = "_blank";
+              anchor.rel = "noopener noreferrer";
+              anchor.textContent = link;
+              root.appendChild(anchor);
+
+              if (trailing) {
+                root.appendChild(document.createTextNode(trailing));
+              }
+
+              last = start + raw.length;
+            }
+
+            if (last < text.length) {
+              root.appendChild(document.createTextNode(text.slice(last)));
+            }
+          },
+
+          shouldSkipLink(text, start) {
+            if (start <= 0) return false;
+            const previous = text[start - 1];
+            return previous === "@" || previous === "/";
+          },
+
+          splitTrailingLinkPunctuation(raw) {
+            let end = raw.length;
+            while (end > 0 && ".,!?:;)]}".includes(raw[end - 1])) {
+              end -= 1;
+            }
+
+            return {
+              link: raw.slice(0, end),
+              trailing: raw.slice(end),
+            };
           },
 
           prependChatBubble(bubble) {

@@ -83,6 +83,13 @@ func (p *Pool) process(job domain.MediaJob) error {
 		}
 		meta = imageMeta
 
+		thumbRelPath, err := generateImageThumbnail(ctx, job.FilePath)
+		if err != nil {
+			slog.Warn("image thumbnail generation skipped", "path", job.FilePath, "err", err)
+			break
+		}
+		meta.Thumb = thumbRelPath
+
 	case strings.HasPrefix(job.MIMEType, "video/"):
 		videoMeta, err := extractVideoMeta(ctx, job.FilePath, job.MIMEType)
 		if err != nil {

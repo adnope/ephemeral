@@ -38,6 +38,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 - Upload progress queue for file uploads
 - History search: type and date filters, filename, text file body search
 - Pagination and infinite scrolling
+- Mobile-friendly JSON API
 - SQLite data persistence
 - Docker deployment
 - Hot-reload development

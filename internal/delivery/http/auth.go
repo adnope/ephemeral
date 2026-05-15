@@ -10,6 +10,31 @@ import (
 
 const sessionCookieName = "session_token"
 
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type authStateResponse struct {
+	SetupRequired bool `json:"setupRequired"`
+}
+
+type loginResponse struct {
+	Authenticated bool `json:"authenticated"`
+}
+
+// AuthState handles GET /api/auth/state.
+func (h *Handler) AuthState(w http.ResponseWriter, r *http.Request) {
+	page, err := h.auth.LoginPage(r.Context())
+	if err != nil {
+		h.log.Error("auth state: page data", "err", err)
+		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, authStateResponse{SetupRequired: page.IsSetup})
+}
+
 // LoginPage handles GET /login.
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	page, err := h.auth.LoginPage(r.Context())
@@ -31,13 +56,48 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 
 // Login handles POST /api/login.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
-		return
+	var username string
+	var password string
+
+	if hasJSONContentType(r) {
+		var req loginRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid JSON body")
+			return
+		}
+		username = req.Username
+		password = req.Password
+	} else {
+		if err := r.ParseForm(); err != nil {
+			if wantsJSON(r) {
+				writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid form")
+			} else {
+				http.Error(w, "invalid form", http.StatusBadRequest)
+			}
+			return
+		}
+		username = r.FormValue("username")
+		password = r.FormValue("password")
 	}
 
-	result, err := h.auth.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
+	result, err := h.auth.Login(r.Context(), username, password)
 	if err != nil {
+		if wantsJSON(r) {
+			switch {
+			case errors.Is(err, usecase.ErrMissingCredentials):
+				writeJSONError(w, http.StatusBadRequest, "validation_error", "missing credentials")
+			case errors.Is(err, usecase.ErrInvalidCredentials):
+				writeJSONError(w, http.StatusUnauthorized, "unauthenticated", "invalid credentials")
+			case errors.Is(err, usecase.ErrUserCreationFailed):
+				h.log.Error("login: create initial user", "err", err)
+				writeJSONError(w, http.StatusInternalServerError, "server_error", "user creation failed")
+			default:
+				h.log.Error("login: usecase", "err", err)
+				writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
+			}
+			return
+		}
+
 		switch {
 		case errors.Is(err, usecase.ErrMissingCredentials):
 			redirectLoginError(w, r, "missing+credentials")
@@ -54,6 +114,10 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, newSessionCookie(result.Token, result.TTL))
+	if wantsJSON(r) {
+		writeJSON(w, http.StatusOK, loginResponse{Authenticated: true})
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -67,6 +131,10 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, expiredSessionCookie())
+	if wantsJSON(r) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

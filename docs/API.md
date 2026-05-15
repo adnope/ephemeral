@@ -38,6 +38,173 @@ UPLOAD_CONCURRENCY=1
 
 Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
 
+## JSON API Conventions
+
+Mobile/API clients should send:
+
+```http
+Accept: application/json
+```
+
+For shared endpoints such as login, logout, message creation, and upload, JSON requests receive JSON/status responses while browser form/HTMX requests keep the existing redirect or HTML partial behavior.
+
+JSON errors use:
+
+```json
+{
+  "code": "validation_error",
+  "message": "Human-readable error"
+}
+```
+
+Common error codes:
+
+```text
+validation_error
+unauthenticated
+forbidden
+not_found
+payload_too_large
+unsupported_preview
+server_error
+```
+
+Mobile item JSON shape:
+
+```json
+{
+  "id": 42,
+  "type": "image",
+  "text": "",
+  "filename": "photo.jpg",
+  "filesizeBytes": 2048,
+  "contentUrl": "/api/files/...",
+  "downloadUrl": "/api/files/...",
+  "createdAtEpochMillis": 1710000000000,
+  "metadata": {
+    "width": 640,
+    "height": 480,
+    "duration": "",
+    "mime": "image/jpeg",
+    "thumbnailUrl": "/api/files/thumbs%2F..."
+  }
+}
+```
+
+For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and file URLs point to the existing file-serving endpoint.
+
+Mobile page JSON shape:
+
+```json
+{
+  "items": [],
+  "nextCursor": 0,
+  "hasMore": false
+}
+```
+
+`cursor=0` means the first page. `nextCursor=0` means no next page. Items are newest first.
+
+## Mobile JSON Endpoints
+
+### `GET /api/auth/state`
+
+Returns whether first-account setup is required.
+
+**Auth**
+
+Public.
+
+**Response**
+
+```json
+{
+  "setupRequired": true
+}
+```
+
+---
+
+### `GET /api/config`
+
+Returns runtime values needed by mobile clients. Also validates a restored session.
+
+**Auth**
+
+Requires `session_token`.
+
+**Response**
+
+```json
+{
+  "chatPageSize": 100,
+  "historyPageSize": 100,
+  "maxUploadSizeBytes": 2147483648,
+  "textPreviewMaxBytes": 10485760,
+  "uploadConcurrency": 1
+}
+```
+
+---
+
+### `GET /api/items`
+
+Returns the chat feed as JSON.
+
+**Auth**
+
+Requires `session_token`.
+
+**Query params**
+
+| Param    | Type    | Description                   |
+| -------- | ------- | ----------------------------- |
+| `cursor` | integer | Load items with `id < cursor` |
+
+**Response**
+
+Returns a mobile page JSON object.
+
+---
+
+### `GET /api/history`
+
+Returns history/search results as JSON.
+
+**Auth**
+
+Requires `session_token`.
+
+**Query params**
+
+| Param    | Type         | Description                                        |
+| -------- | ------------ | -------------------------------------------------- |
+| `cursor` | integer      | Load items with `id < cursor`                      |
+| `type`   | string       | Filter by item type: `image`, `video`, or `file`   |
+| `q`      | string       | Search query                                       |
+| `body`   | `1`          | Enable text/code file body search                  |
+| `from`   | `YYYY-MM-DD` | Start upload date                                  |
+| `to`     | `YYYY-MM-DD` | End upload date, inclusive                         |
+| `recent` | string       | Recent-time preset                                 |
+
+Supported `recent` values:
+
+```text
+1d
+7d
+14d
+30d
+90d
+6mo
+1y
+```
+
+**Response**
+
+Returns a mobile page JSON object.
+
+---
+
 ### `GET /login`
 
 Renders the login page.
@@ -48,7 +215,9 @@ On first run, if no user exists, the login form creates the initial user account
 
 Authenticates a user.
 
-**Content-Type**
+On first run, if no user exists, this creates the initial user account and starts a session.
+
+**Form Content-Type**
 
 ```http
 application/x-www-form-urlencoded
@@ -81,6 +250,30 @@ On failure:
 303 See Other -> /login?error=invalid+credentials
 ```
 
+**JSON request**
+
+```http
+Accept: application/json
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "alice",
+  "password": "secret"
+}
+```
+
+**JSON response**
+
+```json
+{
+  "authenticated": true
+}
+```
+
+Also sets `session_token`.
+
 ### `POST /api/logout`
 
 Invalidates the current session and clears the session cookie.
@@ -89,6 +282,12 @@ Invalidates the current session and clears the session cookie.
 
 ```text
 303 See Other -> /login
+```
+
+For JSON requests:
+
+```text
+204 No Content
 ```
 
 ## API Endpoints
@@ -112,6 +311,16 @@ application/x-www-form-urlencoded
 **Response**
 
 Returns the rendered `item_partial` HTML for the newly created message.
+
+For JSON requests, send:
+
+```json
+{
+  "text": "message body"
+}
+```
+
+and receive one mobile item JSON object.
 
 **Side effects**
 
@@ -143,14 +352,21 @@ multipart/form-data
 
 Returns the rendered `item_partial` HTML for the uploaded item.
 
+For JSON requests, send the same `multipart/form-data` body with:
+
+```http
+Accept: application/json
+```
+
+The response is one mobile item JSON object.
+
 **Behavior**
 
 - Detects MIME type.
 - Stores the file under the upload directory.
 - Rejects requests above `MAX_UPLOAD_SIZE`.
 - Creates an `items` database row.
-- For images/videos, metadata extraction runs asynchronously.
-- For videos, thumbnail generation runs asynchronously.
+- For images/videos, metadata extraction and thumbnail generation run asynchronously.
 - For text/code-like files up to `BODY_INDEX_MAX`, body content is indexed into SQLite FTS5 for history body search.
 
 **Side effects**
@@ -219,6 +435,7 @@ The preview size limit is `TEXT_PREVIEW_MAX`.
 | ----: | ------------------------------- |
 | `200` | Preview returned                |
 | `400` | Invalid item ID                 |
+| `403` | Forbidden file path             |
 | `404` | Item not found                  |
 | `413` | File too large for preview      |
 | `415` | File is not previewable as text |
@@ -242,6 +459,8 @@ Deletes an item permanently.
 ```text
 204 No Content
 ```
+
+For JSON requests, validation/not-found/server errors use the shared JSON error shape.
 
 **Side effects**
 
@@ -380,7 +599,7 @@ file
 
 Generic files may be previewable as text/code if their MIME type or extension is supported.
 
-Video thumbnails are stored under:
+Image and video thumbnails are stored under:
 
 ```text
 uploads/thumbs/

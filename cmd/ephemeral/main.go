@@ -131,7 +131,11 @@ func main() {
 	r.Get("/search", h.SearchItems)
 	r.Get("/login", h.LoginPage)
 
+	r.Get("/api/auth/state", h.AuthState)
+	r.Get("/api/config", h.Config)
 	r.Get("/api/events", h.Events)
+	r.Get("/api/items", h.Items)
+	r.Get("/api/history", h.HistoryAPI)
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)
 	r.Delete("/api/items/{id}", h.DeleteItem)
@@ -230,6 +234,7 @@ func parseTemplates() (*template.Template, error) {
 	funcMap := template.FuncMap{
 		"formatSize":  formatSize,
 		"fileURL":     fileURL,
+		"linkifyText": linkifyText,
 		"queryEscape": queryEscape,
 	}
 

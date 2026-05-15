@@ -13,7 +13,11 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	reader, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "invalid multipart form", http.StatusBadRequest)
+		if wantsJSON(r) {
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid multipart form")
+		} else {
+			http.Error(w, "invalid multipart form", http.StatusBadRequest)
+		}
 		return
 	}
 
@@ -25,10 +29,18 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			var maxBytesErr *http.MaxBytesError
 			if errors.As(err, &maxBytesErr) {
-				http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+				if wantsJSON(r) {
+					writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file too large")
+				} else {
+					http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+				}
 				return
 			}
-			http.Error(w, "invalid multipart data", http.StatusBadRequest)
+			if wantsJSON(r) {
+				writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid multipart data")
+			} else {
+				http.Error(w, "invalid multipart data", http.StatusBadRequest)
+			}
 			return
 		}
 
@@ -40,7 +52,11 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		originalName := filepath.Base(part.FileName())
 		if originalName == "." || originalName == "" {
 			_ = part.Close()
-			http.Error(w, "missing filename", http.StatusBadRequest)
+			if wantsJSON(r) {
+				writeJSONError(w, http.StatusBadRequest, "validation_error", "missing filename")
+			} else {
+				http.Error(w, "missing filename", http.StatusBadRequest)
+			}
 			return
 		}
 
@@ -49,11 +65,24 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		if uploadErr != nil {
 			var maxBytesErr *http.MaxBytesError
 			if errors.As(uploadErr, &maxBytesErr) {
-				http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+				if wantsJSON(r) {
+					writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "file too large")
+				} else {
+					http.Error(w, "file too large", http.StatusRequestEntityTooLarge)
+				}
 				return
 			}
 			h.log.Error("upload: create item", "err", uploadErr)
-			http.Error(w, "upload failed", http.StatusInternalServerError)
+			if wantsJSON(r) {
+				writeJSONError(w, http.StatusInternalServerError, "server_error", "upload failed")
+			} else {
+				http.Error(w, "upload failed", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		if wantsJSON(r) {
+			writeJSON(w, http.StatusOK, itemToResponse(item))
 			return
 		}
 
@@ -63,5 +92,9 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Error(w, "missing file field", http.StatusBadRequest)
+	if wantsJSON(r) {
+		writeJSONError(w, http.StatusBadRequest, "validation_error", "missing file field")
+	} else {
+		http.Error(w, "missing file field", http.StatusBadRequest)
+	}
 }

@@ -243,13 +243,30 @@ header h1 {
   overflow-wrap: anywhere;
 }
 
+.message-text a {
+  overflow-wrap: anywhere;
+  color: var(--color-link);
+  font-weight: 600;
+}
+
 .bubble-image,
 .bubble-video {
   max-width: 100%;
-  max-height: 160px;
   display: block;
-  height: auto;
   margin-top: 5px;
+}
+
+.bubble-image {
+  width: 100%;
+  height: 160px;
+  border-radius: var(--radius-md);
+  background: var(--color-video-bg);
+  object-fit: cover;
+}
+
+.bubble-video {
+  max-height: 160px;
+  height: auto;
 }
 
 .bubble-time {
@@ -1925,7 +1942,10 @@ dialog.text-viewer-dialog[open] {
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
 }
 
-.login-submit:active,
+.login-submit:active {
+  transform: translateY(-5%);
+}
+
 .login-password-toggle:active {
   transform: translateY(1px);
   transform: translateY(-55%);
