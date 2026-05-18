@@ -2,11 +2,12 @@ package media
 
 import (
 	"context"
+	"fmt"
 	"image"
 	_ "image/gif"
-	"image/jpeg"
 	_ "image/png"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -37,75 +38,34 @@ func generateImageThumbnail(ctx context.Context, path string) (string, error) {
 		return "", err
 	}
 
-	source, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = source.Close() }()
-
-	src, _, err := image.Decode(source)
-	if err != nil {
-		return "", err
-	}
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-
-	dst := resizeToMaxWidth(src, 640)
 	thumbPath, thumbRelPath, err := thumbnailPaths(path)
 	if err != nil {
 		return "", err
 	}
 
-	out, err := os.Create(thumbPath)
-	if err != nil {
-		return "", err
-	}
-	success := false
-	defer func() {
-		_ = out.Close()
-		if !success {
-			_ = os.Remove(thumbPath)
-		}
-	}()
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-
-	if err := jpeg.Encode(out, dst, &jpeg.Options{Quality: 82}); err != nil {
-		return "", err
-	}
-	if err := out.Sync(); err != nil {
-		return "", err
+	args := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-nostdin",
+		"-i", path,
+		"-map", "0:v:0",
+		"-an",
+		"-sn",
+		"-dn",
+		"-frames:v", "1",
+		"-vf", "scale='min(640,iw)':-2:flags=lanczos",
+		"-q:v", "3",
+		"-y",
+		thumbPath,
 	}
 
-	success = true
+	cmd := exec.CommandContext(ctx, "ffmpeg", args...)
+	if err := cmd.Run(); err != nil {
+		_ = os.Remove(thumbPath)
+		return "", fmt.Errorf("ffmpeg image thumbnail: %w", err)
+	}
+
 	return thumbRelPath, nil
-}
-
-func resizeToMaxWidth(src image.Image, maxWidth int) image.Image {
-	bounds := src.Bounds()
-	width := bounds.Dx()
-	height := bounds.Dy()
-	if width <= 0 || height <= 0 || width <= maxWidth {
-		return src
-	}
-
-	dstWidth := maxWidth
-	dstHeight := (height * dstWidth) / width
-	if dstHeight <= 0 {
-		dstHeight = 1
-	}
-
-	dst := image.NewRGBA(image.Rect(0, 0, dstWidth, dstHeight))
-	for y := 0; y < dstHeight; y++ {
-		srcY := bounds.Min.Y + (y*height)/dstHeight
-		for x := 0; x < dstWidth; x++ {
-			srcX := bounds.Min.X + (x*width)/dstWidth
-			dst.Set(x, y, src.At(srcX, srcY))
-		}
-	}
-	return dst
 }
 
 func thumbnailPaths(path string) (string, string, error) {
