@@ -17,7 +17,7 @@ func TestRateLimitSkipsFilesAndEvents(t *testing.T) {
 	}))
 
 	for _, path := range []string{"/api/files/example.jpg", "/api/events"} {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			req := httptest.NewRequest(http.MethodGet, path, nil)
 			req.RemoteAddr = "192.0.2.10:1234"
 			res := httptest.NewRecorder()

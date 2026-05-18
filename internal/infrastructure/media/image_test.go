@@ -6,12 +6,16 @@ import (
 	"image/color"
 	"image/jpeg"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
 
 func TestGenerateImageThumbnail(t *testing.T) {
 	t.Parallel()
+	if _, err := exec.LookPath("ffmpeg"); err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
 
 	uploadDir := t.TempDir()
 	imagePath := filepath.Join(uploadDir, "sample.jpg")
@@ -45,8 +49,8 @@ func writeTestJPEG(t *testing.T, path string, width int, height int) {
 	t.Helper()
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := range height {
+		for x := range width {
 			img.Set(x, y, color.RGBA{R: uint8(x % 255), G: uint8(y % 255), B: 128, A: 255})
 		}
 	}
