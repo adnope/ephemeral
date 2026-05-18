@@ -58,7 +58,7 @@ func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration) func(h
 				return
 			}
 
-			refreshWindow := max(sessionTTL / 3, time.Minute)
+			refreshWindow := max(sessionTTL/3, time.Minute)
 
 			if time.Until(session.ExpiresAt) <= refreshWindow {
 				newExpiresAt := now.Add(sessionTTL)
