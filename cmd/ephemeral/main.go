@@ -161,8 +161,8 @@ func main() {
 
 	addr := fmt.Sprintf(":%d", cfg.Port)
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:              addr,
+		Handler:           r,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 	}
