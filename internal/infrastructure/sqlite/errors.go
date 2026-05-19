@@ -15,7 +15,7 @@ func retryInterruptedRead(ctx context.Context, operation func() error) error {
 	const attempts = 5
 
 	var err error
-	for attempt := 0; attempt < attempts; attempt++ {
+	for attempt := range attempts {
 		err = operation()
 		if err == nil {
 			return nil

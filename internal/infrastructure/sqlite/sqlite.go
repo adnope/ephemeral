@@ -39,8 +39,6 @@ func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
 	}
 
 	db.SetMaxOpenConns(maxOpenConns)
-	// Prevent a sqlite3_interrupt triggered by a canceled request from being
-	// reused by later requests on the same physical connection.
 	db.SetMaxIdleConns(0)
 
 	if err := db.PingContext(context.Background()); err != nil {
