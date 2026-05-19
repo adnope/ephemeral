@@ -12,19 +12,32 @@ import (
 const sqliteInterruptCode = 9
 
 func retryInterruptedRead(ctx context.Context, operation func() error) error {
-	const attempts = 3
+	const attempts = 5
 
 	var err error
-	for attempt := range attempts {
+	for attempt := 0; attempt < attempts; attempt++ {
 		err = operation()
 		if err == nil {
 			return nil
 		}
-		if ctx.Err() != nil || !isSQLiteInterrupt(err) {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if !isSQLiteInterrupt(err) {
+			return err
+		}
+		if attempt == attempts-1 {
 			return err
 		}
 
-		time.Sleep(time.Duration(attempt+1) * 5 * time.Millisecond)
+		delay := time.Duration(1<<attempt) * 5 * time.Millisecond
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 
 	return err

@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
+	"path/filepath"
 	"time"
 
 	"github.com/adnope/ephemeral/internal/domain"
@@ -13,26 +15,41 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+const (
+	maxOpenConns = 4
+)
+
+var connectionPragmas = []string{
+	"synchronous(NORMAL)",
+	"cache_size(-4096)",
+	"foreign_keys(ON)",
+	"temp_store(MEMORY)",
+	"busy_timeout(5000)",
+}
+
 func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	dsn, err := dsnWithPragmas(dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("sqlite open: %w", err)
 	}
 
-	db.SetMaxOpenConns(1)
+	db.SetMaxOpenConns(maxOpenConns)
+	// Prevent a sqlite3_interrupt triggered by a canceled request from being
+	// reused by later requests on the same physical connection.
+	db.SetMaxIdleConns(0)
 
-	pragmas := []string{
-		"PRAGMA journal_mode = WAL",
-		"PRAGMA synchronous = NORMAL",
-		"PRAGMA cache_size = -4096",
-		"PRAGMA foreign_keys = ON",
-		"PRAGMA temp_store = MEMORY",
+	if err := db.PingContext(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("sqlite ping: %w", err)
 	}
-	for _, pragma := range pragmas {
-		if _, err := db.ExecContext(context.Background(), pragma); err != nil {
-			_ = db.Close()
-			return nil, fmt.Errorf("sqlite pragma %q: %w", pragma, err)
-		}
+	if _, err := db.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("sqlite pragma journal_mode: %w", err)
 	}
 
 	if migrationSQL != "" {
@@ -45,6 +62,24 @@ func OpenDB(dbPath string, migrationSQL string) (*sql.DB, error) {
 
 	slog.Info("database initialized", "path", dbPath)
 	return db, nil
+}
+
+func dsnWithPragmas(dbPath string) (string, error) {
+	absPath, err := filepath.Abs(dbPath)
+	if err != nil {
+		return "", fmt.Errorf("sqlite db path: %w", err)
+	}
+
+	values := url.Values{}
+	for _, pragma := range connectionPragmas {
+		values.Add("_pragma", pragma)
+	}
+
+	return (&url.URL{
+		Scheme:   "file",
+		Path:     filepath.ToSlash(absPath),
+		RawQuery: values.Encode(),
+	}).String(), nil
 }
 
 func NewItemRepository(db *sql.DB) domain.ItemRepository {
