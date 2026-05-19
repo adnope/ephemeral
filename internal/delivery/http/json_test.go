@@ -1,6 +1,10 @@
 package httpdelivery
 
 import (
+	"bytes"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -60,5 +64,43 @@ func TestItemToResponseText(t *testing.T) {
 	}
 	if got.ContentURL != "" || got.DownloadURL != "" {
 		t.Fatalf("text item URLs should be empty: %#v", got)
+	}
+}
+
+func TestDecodeJSONRejectsBodyAboveLimit(t *testing.T) {
+	var reqBody struct {
+		Text string `json:"text"`
+	}
+
+	body := bytes.NewBufferString(`{"text":"`)
+	body.Write(bytes.Repeat([]byte("a"), maxJSONBodyBytes))
+	body.WriteString(`"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/message", body)
+	res := httptest.NewRecorder()
+
+	err := decodeJSON(res, req, &reqBody)
+	if !errors.Is(err, errJSONBodyTooLarge) {
+		t.Fatalf("decodeJSON error = %v, want errJSONBodyTooLarge", err)
+	}
+}
+
+func TestBoundedUploadConcurrency(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  int
+		want int
+	}{
+		{name: "default minimum", raw: 0, want: 1},
+		{name: "configured value", raw: 5, want: 5},
+		{name: "maximum cap", raw: 11, want: 10},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := boundedUploadConcurrency(tt.raw); got != tt.want {
+				t.Fatalf("boundedUploadConcurrency(%d) = %d, want %d", tt.raw, got, tt.want)
+			}
+		})
 	}
 }

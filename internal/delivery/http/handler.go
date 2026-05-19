@@ -20,6 +20,7 @@ type Handler struct {
 	tmpl     *template.Template
 	log      *slog.Logger
 	settings HandlerSettings
+	uploads  chan struct{}
 }
 
 type HandlerSettings struct {
@@ -29,6 +30,7 @@ type HandlerSettings struct {
 	MaxUploadBytes      int64
 	TextPreviewMaxBytes int64
 	UploadConcurrency   int
+	CookieSecure        bool
 }
 
 func NewHandler(
@@ -52,5 +54,16 @@ func NewHandler(
 		tmpl:     tmpl,
 		log:      log,
 		settings: settings,
+		uploads:  make(chan struct{}, boundedUploadConcurrency(settings.UploadConcurrency)),
 	}
+}
+
+func boundedUploadConcurrency(value int) int {
+	if value <= 0 {
+		return 1
+	}
+	if value > 10 {
+		return 10
+	}
+	return value
 }

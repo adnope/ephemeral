@@ -6,10 +6,11 @@ Ephemeral provides a minimal set of authenticated endpoints for sharing text, up
 
 All protected endpoints require a valid `session_token` cookie.
 
-Sessions are rolling sessions. When a session is close to expiry, authenticated requests refresh the session expiry and reset the cookie max age. The session TTL is configured with:
+Sessions are rolling sessions. When a session is close to expiry, authenticated requests refresh the session expiry and reset the cookie max age. The session TTL and secure-cookie behavior are configured with:
 
 ```env
 SESSION_TTL=30d
+COOKIE_SECURE=false
 ```
 
 Supported examples:
@@ -37,6 +38,7 @@ UPLOAD_CONCURRENCY=1
 ```
 
 Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
+JSON request bodies for JSON endpoints are limited to 64 KiB. `UPLOAD_CONCURRENCY` is enforced server-side and capped at 10.
 
 ## JSON API Conventions
 
@@ -404,6 +406,7 @@ Returns the file content using `http.ServeFile`.
 
 - Supports filenames with spaces and Unicode characters.
 - Rejects unsafe paths such as absolute paths or `..`.
+- Active document uploads such as HTML, SVG, XML, and XHTML are served with a sandbox Content Security Policy when opened directly.
 
 ---
 

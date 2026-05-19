@@ -104,6 +104,7 @@ func main() {
 			MaxUploadBytes:      cfg.MaxUploadBytes,
 			TextPreviewMaxBytes: cfg.TextPreviewMaxBytes,
 			UploadConcurrency:   cfg.UploadConcurrency,
+			CookieSecure:        cfg.CookieSecure,
 		},
 	)
 
@@ -111,11 +112,12 @@ func main() {
 
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
 
+	r.Use(mw.TrustedRealIP(cfg.TrustedProxies))
+	r.Use(mw.SecurityHeaders)
 	r.Use(mw.RequestLogger(logger))
 	r.Use(mw.RateLimit(100, time.Minute))
-	r.Use(mw.SessionAuth(sessionRepo, cfg.SessionTTL))
+	r.Use(mw.SessionAuth(sessionRepo, cfg.SessionTTL, cfg.CookieSecure))
 
 	staticSubFS, err := fs.Sub(web.FS, "static")
 	if err != nil {

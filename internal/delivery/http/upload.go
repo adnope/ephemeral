@@ -9,6 +9,12 @@ import (
 
 // Upload handles POST /api/upload.
 func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
+	releaseUploadSlot, err := h.acquireUploadSlot(r.Context())
+	if err != nil {
+		return
+	}
+	defer releaseUploadSlot()
+
 	r.Body = http.MaxBytesReader(w, r.Body, h.settings.MaxUploadBytes)
 
 	reader, err := r.MultipartReader()

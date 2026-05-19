@@ -3,16 +3,21 @@ package config
 import (
 	"fmt"
 	"math"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
+const MaxUploadConcurrency = 10
+
 type Config struct {
 	Port                int
 	DataDir             string
 	SessionTTL          time.Duration
+	CookieSecure        bool
+	TrustedProxies      []netip.Prefix
 	ChatPageSize        int
 	HistoryPageSize     int
 	SearchResultLimit   int
@@ -61,6 +66,18 @@ func Load() (*Config, error) {
 		cfg.SessionTTL = ttl
 	}
 
+	if err := loadBool("COOKIE_SECURE", &cfg.CookieSecure); err != nil {
+		return nil, err
+	}
+
+	if v := os.Getenv("TRUSTED_PROXIES"); v != "" {
+		proxies, err := parseTrustedProxies(v)
+		if err != nil {
+			return nil, fmt.Errorf("config: invalid TRUSTED_PROXIES %q: %w", v, err)
+		}
+		cfg.TrustedProxies = proxies
+	}
+
 	if err := loadPositiveInt("CHAT_PAGE_SIZE", &cfg.ChatPageSize); err != nil {
 		return nil, err
 	}
@@ -82,7 +99,7 @@ func Load() (*Config, error) {
 	if err := loadPositiveInt("MEDIA_WORKER_COUNT", &cfg.MediaWorkerCount); err != nil {
 		return nil, err
 	}
-	if err := loadPositiveInt("UPLOAD_CONCURRENCY", &cfg.UploadConcurrency); err != nil {
+	if err := loadBoundedPositiveInt("UPLOAD_CONCURRENCY", &cfg.UploadConcurrency, MaxUploadConcurrency); err != nil {
 		return nil, err
 	}
 
@@ -126,6 +143,31 @@ func loadPositiveInt(name string, target *int) error {
 	return nil
 }
 
+func loadBoundedPositiveInt(name string, target *int, maxValue int) error {
+	if err := loadPositiveInt(name, target); err != nil {
+		return err
+	}
+	if *target > maxValue {
+		*target = maxValue
+	}
+	return nil
+}
+
+func loadBool(name string, target *bool) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := strconv.ParseBool(strings.TrimSpace(value))
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+
+	*target = parsed
+	return nil
+}
+
 func loadByteSize(name string, target *int64) error {
 	value := os.Getenv(name)
 	if value == "" {
@@ -142,6 +184,39 @@ func loadByteSize(name string, target *int64) error {
 
 	*target = parsed
 	return nil
+}
+
+func parseTrustedProxies(value string) ([]netip.Prefix, error) {
+	parts := strings.Split(value, ",")
+	proxies := make([]netip.Prefix, 0, len(parts))
+	for _, part := range parts {
+		raw := strings.TrimSpace(part)
+		if raw == "" {
+			continue
+		}
+
+		if strings.Contains(raw, "/") {
+			prefix, err := netip.ParsePrefix(raw)
+			if err != nil {
+				return nil, err
+			}
+			proxies = append(proxies, prefix.Masked())
+			continue
+		}
+
+		addr, err := netip.ParseAddr(raw)
+		if err != nil {
+			return nil, err
+		}
+		addr = addr.Unmap()
+		bits := 32
+		if addr.Is6() {
+			bits = 128
+		}
+		proxies = append(proxies, netip.PrefixFrom(addr, bits))
+	}
+
+	return proxies, nil
 }
 
 func parseDurationWithDays(value string) (time.Duration, error) {

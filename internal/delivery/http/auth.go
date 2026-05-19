@@ -61,7 +61,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	if hasJSONContentType(r) {
 		var req loginRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
+			if errors.Is(err, errJSONBodyTooLarge) {
+				writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "JSON body too large")
+				return
+			}
 			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid JSON body")
 			return
 		}
@@ -113,7 +117,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.SetCookie(w, newSessionCookie(result.Token, result.TTL))
+	http.SetCookie(w, newSessionCookie(result.Token, result.TTL, h.settings.CookieSecure))
 	if wantsJSON(r) {
 		writeJSON(w, http.StatusOK, loginResponse{Authenticated: true})
 		return
@@ -138,13 +142,14 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func newSessionCookie(token string, ttl time.Duration) *http.Cookie {
+func newSessionCookie(token string, ttl time.Duration, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     sessionCookieName,
 		Value:    token,
 		Path:     "/",
 		MaxAge:   int(ttl.Seconds()),
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	}
 }

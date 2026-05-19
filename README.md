@@ -70,6 +70,8 @@ Environment variables:
 PORT=8080
 DATA_DIR=./data
 SESSION_TTL=30d
+COOKIE_SECURE=false
+TRUSTED_PROXIES=
 CHAT_PAGE_SIZE=100
 HISTORY_PAGE_SIZE=100
 SEARCH_RESULT_LIMIT=30
@@ -81,6 +83,7 @@ UPLOAD_CONCURRENCY=1
 ```
 
 Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
+`UPLOAD_CONCURRENCY` is capped at 10. Set `COOKIE_SECURE=true` when serving only over HTTPS. Set `TRUSTED_PROXIES` to comma-separated proxy IPs/CIDRs only when a trusted reverse proxy sets forwarding headers.
 
 Create local env file:
 

@@ -22,7 +22,7 @@ var publicPaths = map[string]struct{}{
 	"/manifest.json":  {},
 }
 
-func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration) func(http.Handler) http.Handler {
+func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration, cookieSecure bool) func(http.Handler) http.Handler {
 	if sessionTTL < time.Minute {
 		sessionTTL = time.Minute
 	}
@@ -70,7 +70,7 @@ func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration) func(h
 				}
 
 				session.ExpiresAt = newExpiresAt
-				http.SetCookie(w, sessionCookie(session.Token, sessionTTL))
+				http.SetCookie(w, sessionCookie(session.Token, sessionTTL, cookieSecure))
 			}
 
 			ctx := context.WithValue(r.Context(), ctxKeySession, session)
@@ -111,13 +111,14 @@ func GetSession(ctx context.Context) *domain.Session {
 	return s
 }
 
-func sessionCookie(token string, ttl time.Duration) *http.Cookie {
+func sessionCookie(token string, ttl time.Duration, secure bool) *http.Cookie {
 	return &http.Cookie{
 		Name:     "session_token",
 		Value:    token,
 		Path:     "/",
 		MaxAge:   int(ttl.Seconds()),
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 	}
 }

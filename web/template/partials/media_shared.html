@@ -155,12 +155,11 @@
 </dialog>
 {{end}} {{define "text_viewer_scripts"}}
 <script type="module">
-  import { codeToHtml } from "https://esm.sh/shiki@4.0.2";
-
   const state = {
     preview: null,
     renderSeq: 0,
   };
+  let shikiModulePromise = null;
 
   const supportedLanguages = new Set([
     "plaintext",
@@ -233,6 +232,12 @@
     return supportedLanguages.has(select.value) ? select.value : "plaintext";
   }
 
+  async function loadCodeToHtml() {
+    shikiModulePromise ||= import("/static/vendor/shiki.bundle.mjs");
+    const shiki = await shikiModulePromise;
+    return shiki.codeToHtml;
+  }
+
   async function renderPreview() {
     if (!state.preview) return;
 
@@ -244,6 +249,7 @@
     setStatus(`Rendering ${lang}...`);
 
     try {
+      const codeToHtml = await loadCodeToHtml();
       const html = await codeToHtml(state.preview.content, {
         lang,
         theme: "github-light",

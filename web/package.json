@@ -1,14 +1,19 @@
 {
   "type": "module",
   "scripts": {
+    "build-vendor": "esbuild node_modules/shiki/dist/bundle-web.mjs --bundle --format=esm --target=es2022 --platform=browser --outfile=static/vendor/shiki.bundle.mjs",
     "format": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\"",
     "lint": "eslint \"**/*.js\"",
     "fix": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\" && eslint \"**/*.js\" --fix"
   },
   "devDependencies": {
     "@eslint/js": "latest",
+    "esbuild": "^0.28.0",
     "eslint": "latest",
     "globals": "^17.6.0",
     "prettier": "latest"
+  },
+  "dependencies": {
+    "shiki": "^4.0.2"
   }
 }

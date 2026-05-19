@@ -16,7 +16,11 @@ func (h *Handler) Message(w http.ResponseWriter, r *http.Request) {
 	var text string
 	if hasJSONContentType(r) {
 		var req messageRequest
-		if err := decodeJSON(r, &req); err != nil {
+		if err := decodeJSON(w, r, &req); err != nil {
+			if errors.Is(err, errJSONBodyTooLarge) {
+				writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "JSON body too large")
+				return
+			}
 			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid JSON body")
 			return
 		}
