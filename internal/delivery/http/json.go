@@ -2,6 +2,8 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,6 +16,10 @@ type jsonErrorResponse struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+const maxJSONBodyBytes = 64 << 10
+
+var errJSONBodyTooLarge = errors.New("json body too large")
 
 type itemMetadataResponse struct {
 	Width        int    `json:"width"`
@@ -57,10 +63,29 @@ func hasJSONContentType(r *http.Request) bool {
 	return strings.TrimSpace(contentType) == "application/json"
 }
 
-func decodeJSON(r *http.Request, target any) error {
+func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONBodyBytes)
+
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(target)
+	if err := decoder.Decode(target); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return errJSONBodyTooLarge
+		}
+		return err
+	}
+
+	var extra struct{}
+	if err := decoder.Decode(&extra); err != io.EOF {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return errJSONBodyTooLarge
+		}
+		return err
+	}
+
+	return nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

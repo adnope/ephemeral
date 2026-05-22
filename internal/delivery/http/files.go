@@ -3,6 +3,8 @@ package httpdelivery
 import (
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -23,5 +25,22 @@ func (h *Handler) ServeFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	setUploadFileHeaders(w, decodedPath)
 	http.ServeFile(w, r, absPath)
+}
+
+func setUploadFileHeaders(w http.ResponseWriter, relPath string) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if isActiveUploadDocument(relPath) {
+		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'")
+	}
+}
+
+func isActiveUploadDocument(relPath string) bool {
+	switch strings.ToLower(filepath.Ext(relPath)) {
+	case ".htm", ".html", ".svg", ".xml", ".xhtml":
+		return true
+	default:
+		return false
+	}
 }

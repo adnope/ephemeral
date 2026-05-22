@@ -40,6 +40,8 @@ func TestLoadRuntimeTuningEnv(t *testing.T) {
 	t.Setenv("PORT", "9000")
 	t.Setenv("DATA_DIR", dataDir)
 	t.Setenv("SESSION_TTL", "2h")
+	t.Setenv("COOKIE_SECURE", "true")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1, 10.0.0.0/8")
 	t.Setenv("CHAT_PAGE_SIZE", "25")
 	t.Setenv("HISTORY_PAGE_SIZE", "50")
 	t.Setenv("SEARCH_RESULT_LIMIT", "12")
@@ -47,15 +49,18 @@ func TestLoadRuntimeTuningEnv(t *testing.T) {
 	t.Setenv("TEXT_PREVIEW_MAX", "512KiB")
 	t.Setenv("BODY_INDEX_MAX", "1MiB")
 	t.Setenv("MEDIA_WORKER_COUNT", "3")
-	t.Setenv("UPLOAD_CONCURRENCY", "2")
+	t.Setenv("UPLOAD_CONCURRENCY", "42")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load(): %v", err)
 	}
 
-	if cfg.Port != 9000 || cfg.DataDir != dataDir || cfg.SessionTTL != 2*time.Hour {
+	if cfg.Port != 9000 || cfg.DataDir != dataDir || cfg.SessionTTL != 2*time.Hour || !cfg.CookieSecure {
 		t.Fatalf("unexpected base config: %#v", cfg)
+	}
+	if len(cfg.TrustedProxies) != 2 {
+		t.Fatalf("TrustedProxies len = %d, want 2", len(cfg.TrustedProxies))
 	}
 	if cfg.ChatPageSize != 25 ||
 		cfg.HistoryPageSize != 50 ||
@@ -64,7 +69,16 @@ func TestLoadRuntimeTuningEnv(t *testing.T) {
 		cfg.TextPreviewMaxBytes != 512<<10 ||
 		cfg.BodyIndexMaxBytes != 1<<20 ||
 		cfg.MediaWorkerCount != 3 ||
-		cfg.UploadConcurrency != 2 {
+		cfg.UploadConcurrency != MaxUploadConcurrency {
 		t.Fatalf("unexpected tuning config: %#v", cfg)
+	}
+}
+
+func TestLoadInvalidTrustedProxy(t *testing.T) {
+	t.Setenv("DATA_DIR", t.TempDir())
+	t.Setenv("TRUSTED_PROXIES", "not-an-ip")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load() error = nil, want invalid trusted proxy error")
 	}
 }
