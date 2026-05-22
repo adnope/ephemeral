@@ -11,7 +11,11 @@
   <span>Loading older messages...</span>
 </div>
 {{end}} {{end}} {{define "item_partial"}}
-<div class="chat-bubble" id="item-{{.ID}}" data-item-id="{{.ID}}">
+<div
+  class="chat-bubble{{if eq .Type `video`}} chat-bubble--video{{end}}"
+  id="item-{{.ID}}"
+  data-item-id="{{.ID}}"
+>
   <div class="bubble-menu-wrap">
     <button
       type="button"
@@ -25,6 +29,18 @@
     </button>
 
     <div class="bubble-action-menu" role="menu">
+      {{if ne .Type "text"}}
+      <a
+        href="{{fileURL .Content}}"
+        download="{{.Filename}}"
+        class="bubble-action-menu-item"
+        role="menuitem"
+        onclick="event.stopPropagation()"
+      >
+        Download
+      </a>
+      {{end}}
+
       <button
         type="button"
         class="bubble-action-menu-item is-danger"

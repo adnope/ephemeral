@@ -288,11 +288,15 @@ func buildFTSAndQuery(tokens []string) string {
 }
 
 type metadataJSON struct {
-	Width    int    `json:"width,omitempty"`
-	Height   int    `json:"height,omitempty"`
-	Duration string `json:"duration,omitempty"`
-	MIME     string `json:"mime,omitempty"`
-	Thumb    string `json:"thumb,omitempty"`
+	Width        int    `json:"width,omitempty"`
+	Height       int    `json:"height,omitempty"`
+	Duration     string `json:"duration,omitempty"`
+	MIME         string `json:"mime,omitempty"`
+	Thumb        string `json:"thumb,omitempty"`
+	Playback     string `json:"playback,omitempty"`
+	PlaybackMIME string `json:"playbackMime,omitempty"`
+	HLS          string `json:"hls,omitempty"`
+	Processing   bool   `json:"processing,omitempty"`
 }
 
 func (m *metadataJSON) Scan(src any) error {
@@ -321,11 +325,15 @@ func (m *metadataJSON) Scan(src any) error {
 
 func (m metadataJSON) toDomain() domain.Metadata {
 	return domain.Metadata{
-		Width:    m.Width,
-		Height:   m.Height,
-		Duration: m.Duration,
-		MIME:     m.MIME,
-		Thumb:    m.Thumb,
+		Width:        m.Width,
+		Height:       m.Height,
+		Duration:     m.Duration,
+		MIME:         m.MIME,
+		Thumb:        m.Thumb,
+		Playback:     m.Playback,
+		PlaybackMIME: m.PlaybackMIME,
+		HLS:          m.HLS,
+		Processing:   m.Processing,
 	}
 }
 

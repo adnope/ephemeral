@@ -102,7 +102,40 @@ Mobile item JSON shape:
 }
 ```
 
-For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and `contentUrl` / `downloadUrl` point to the original upload. Video clients should show a processing state while `metadata.processing` is true, then prefer `metadata.hlsUrl` when supported, then `metadata.playbackUrl`, and fall back to `contentUrl`.
+For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and `contentUrl` / `downloadUrl` point to the original upload.
+
+### Media Playback Contract
+
+Media URL fields are server-relative URLs. Resolve them against the same origin used for the API, and use them exactly as returned:
+
+```text
+https://example.local + /api/files/hls%2Fexample%2Findex.m3u8
+= https://example.local/api/files/hls%2Fexample%2Findex.m3u8
+```
+
+Do not split, decode, or rebuild `/api/files/...` URLs on the client. Filenames and generated media paths may contain spaces or Unicode characters, and the returned URL is already encoded for HTTP.
+
+Video playback fields:
+
+| Field                   | Meaning                                                       |
+| ----------------------- | ------------------------------------------------------------- |
+| `metadata.processing`   | Background thumbnail/playback/HLS processing is still running |
+| `metadata.hlsUrl`       | HLS VOD playlist URL (`.m3u8`) when HLS was generated         |
+| `metadata.playbackUrl`  | Browser-friendly MP4 playback copy URL                        |
+| `metadata.playbackMime` | MIME type for `metadata.playbackUrl`, normally `video/mp4`    |
+| `contentUrl`            | Original uploaded file URL                                    |
+| `downloadUrl`           | Original uploaded file URL intended for download actions      |
+
+Playback selection:
+
+1. If `metadata.processing` is `true`, show the item as processing and refresh it after `item:updated` from `GET /api/events`, or by polling `GET /api/items` / `GET /api/history`.
+2. If `metadata.hlsUrl` is non-empty and the client supports HLS, play `metadata.hlsUrl`.
+3. Otherwise, if `metadata.playbackUrl` is non-empty, play `metadata.playbackUrl` using `metadata.playbackMime`.
+4. Otherwise, play `contentUrl` only if the client supports the original container and codecs.
+
+HLS is generated only when the upload reaches the configured `HLS_MIN_SIZE` or `HLS_MIN_DURATION` threshold. If neither threshold is reached, `metadata.hlsUrl` is empty and clients should use the MP4 playback copy. Deployments can set both thresholds to `0` to generate HLS for every video.
+
+HLS playlists reference generated segment URLs under `/api/files/...`. Clients must send the same authenticated `session_token` cookie for the playlist request and every segment request. This also applies to `metadata.playbackUrl`, `contentUrl`, thumbnails, and downloads because `/api/files/...` is protected by session authentication.
 
 Mobile page JSON shape:
 
@@ -188,15 +221,15 @@ Requires `session_token`.
 
 **Query params**
 
-| Param    | Type         | Description                                        |
-| -------- | ------------ | -------------------------------------------------- |
-| `cursor` | integer      | Load items with `id < cursor`                      |
-| `type`   | string       | Filter by item type: `image`, `video`, or `file`   |
-| `q`      | string       | Search query                                       |
-| `body`   | `1`          | Enable text/code file body search                  |
-| `from`   | `YYYY-MM-DD` | Start upload date                                  |
-| `to`     | `YYYY-MM-DD` | End upload date, inclusive                         |
-| `recent` | string       | Recent-time preset                                 |
+| Param    | Type         | Description                                      |
+| -------- | ------------ | ------------------------------------------------ |
+| `cursor` | integer      | Load items with `id < cursor`                    |
+| `type`   | string       | Filter by item type: `image`, `video`, or `file` |
+| `q`      | string       | Search query                                     |
+| `body`   | `1`          | Enable text/code file body search                |
+| `from`   | `YYYY-MM-DD` | Start upload date                                |
+| `to`     | `YYYY-MM-DD` | End upload date, inclusive                       |
+| `recent` | string       | Recent-time preset                               |
 
 Supported `recent` values:
 
@@ -414,10 +447,20 @@ GET /api/files/hls/1710000000000_video/index.m3u8
 
 Returns the file content using `http.ServeFile`.
 
+Standard HTTP range requests are supported. This is useful for MP4 seeking and for media players that request byte ranges.
+
+Generated HLS files use these response content types:
+
+| Extension | Content-Type                    |
+| --------- | ------------------------------- |
+| `.m3u8`   | `application/vnd.apple.mpegurl` |
+| `.ts`     | `video/mp2t`                    |
+
 **Notes**
 
 - Supports filenames with spaces and Unicode characters.
 - Rejects unsafe paths such as absolute paths or `..`.
+- HLS playlists may contain root-relative segment URLs such as `/api/files/hls%2Fexample%2Fsegment_00000.ts`; resolve them against the same API origin and include the authenticated session cookie on each request.
 - Active document uploads such as HTML, SVG, XML, and XHTML are served with a sandbox Content Security Policy when opened directly.
 
 ---
@@ -595,11 +638,11 @@ events.onerror = (error) => {
 
 ### Event Types
 
-| Event          | Description                                        |
-| -------------- | -------------------------------------------------- |
-| `item:new`     | New text message or uploaded file was created      |
+| Event          | Description                                                             |
+| -------------- | ----------------------------------------------------------------------- |
+| `item:new`     | New text message or uploaded file was created                           |
 | `item:updated` | Background media metadata, thumbnail, and playback processing completed |
-| `item:deleted` | Item was permanently deleted                       |
+| `item:deleted` | Item was permanently deleted                                            |
 
 ## Data Model Summary
 
