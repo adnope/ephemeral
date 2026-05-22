@@ -91,6 +91,17 @@ func (s *UploadStorage) Remove(content string) error {
 	return nil
 }
 
+func (s *UploadStorage) RemoveTree(content string) error {
+	path, err := s.Path(content)
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(path); err != nil {
+		return fmt.Errorf("remove upload tree: %w", err)
+	}
+	return nil
+}
+
 func (s *UploadStorage) ReadLimited(content string, maxBytes int64) ([]byte, error) {
 	path, err := s.Path(content)
 	if err != nil {

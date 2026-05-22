@@ -24,11 +24,15 @@ type Item struct {
 }
 
 type Metadata struct {
-	Width    int
-	Height   int
-	Duration string
-	MIME     string
-	Thumb    string
+	Width        int
+	Height       int
+	Duration     string
+	MIME         string
+	Thumb        string
+	Playback     string
+	PlaybackMIME string
+	HLS          string
+	Processing   bool
 }
 
 type ListFilter struct {
@@ -59,6 +63,7 @@ type MediaJob struct {
 	ItemID   int64
 	FilePath string
 	MIMEType string
+	Size     int64
 }
 
 type MediaService interface {
@@ -86,5 +91,6 @@ type UploadStorage interface {
 	Save(ctx context.Context, file UploadFile) (StoredUpload, error)
 	Path(content string) (string, error)
 	Remove(content string) error
+	RemoveTree(content string) error
 	ReadLimited(content string, maxBytes int64) ([]byte, error)
 }

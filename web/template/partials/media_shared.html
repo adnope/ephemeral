@@ -17,6 +17,22 @@
     Close
   </button>
 </div>
+{{end}} {{define "media_video_sources"}} {{if .Metadata.HLS}}
+<source src="{{fileURL .Metadata.HLS}}" type="application/vnd.apple.mpegurl" />
+{{end}} {{if .Metadata.Playback}}
+<source
+  src="{{fileURL .Metadata.Playback}}"
+  type="{{if .Metadata.PlaybackMIME}}{{.Metadata.PlaybackMIME}}{{else}}video/mp4{{end}}"
+/>
+{{end}}
+<source src="{{fileURL .Content}}" type="{{.Metadata.MIME}}" />
+{{end}} {{define "video_processing_indicator"}}
+<span class="video-processing-indicator">processing video...</span>
+{{end}} {{define "media_processing_panel"}}
+<div class="media-processing-panel">
+  <span class="auto-load-spinner"></span>
+  <span>processing video...</span>
+</div>
 {{end}} {{define "media_dialog_nav_chat"}}
 <div class="media-dialog-nav">
   <button
@@ -421,9 +437,67 @@
 </script>
 {{end}} {{define "media_scripts"}}
 <script>
+  const hlsPlayers = new WeakMap();
+  let hlsModulePromise = null;
+
+  function videoHasNativeHLS(video) {
+    return (
+      video.canPlayType("application/vnd.apple.mpegurl") !== "" ||
+      video.canPlayType("application/x-mpegURL") !== ""
+    );
+  }
+
+  async function loadHLSModule() {
+    hlsModulePromise ||= import("/static/vendor/hls.bundle.mjs");
+    return hlsModulePromise;
+  }
+
+  async function prepareDialogVideo(dialog) {
+    const video = dialog.querySelector("video[data-hls-src]");
+    if (!(video instanceof HTMLVideoElement)) return;
+
+    const hlsSrc = video.dataset.hlsSrc;
+    if (!hlsSrc || videoHasNativeHLS(video) || hlsPlayers.has(video)) return;
+
+    try {
+      const hlsModule = await loadHLSModule();
+      const Hls = hlsModule.default;
+      if (!Hls || !Hls.isSupported()) return;
+
+      const hls = new Hls({
+        capLevelToPlayerSize: true,
+        maxBufferLength: 30,
+      });
+      hls.loadSource(hlsSrc);
+      hls.attachMedia(video);
+      hlsPlayers.set(video, hls);
+    } catch (error) {
+      console.warn("HLS initialization failed", error);
+    }
+  }
+
+  function destroyDialogHLS(dialog) {
+    const video = dialog.querySelector("video[data-hls-src]");
+    if (!(video instanceof HTMLVideoElement)) return;
+
+    const hls = hlsPlayers.get(video);
+    if (!hls) return;
+
+    hls.destroy();
+    hlsPlayers.delete(video);
+  }
+
   window.openMediaDialog = function (dialog) {
     if (!(dialog instanceof HTMLDialogElement)) return;
 
+    if (!dialog.dataset.hlsCleanupBound) {
+      dialog.addEventListener("close", () => {
+        destroyDialogHLS(dialog);
+      });
+      dialog.dataset.hlsCleanupBound = "1";
+    }
+
+    void prepareDialogVideo(dialog);
     dialog.showModal();
 
     requestAnimationFrame(() => {

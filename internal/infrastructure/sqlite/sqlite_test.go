@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/adnope/ephemeral/internal/domain"
 )
 
 func TestDSNWithPragmas(t *testing.T) {
@@ -104,6 +106,37 @@ func TestRetryInterruptedReadRetriesOnlyWhileRequestIsActive(t *testing.T) {
 			t.Fatalf("attempts = %d, want 1", attempts)
 		}
 	})
+}
+
+func TestMetadataRoundTripIncludesPlaybackFields(t *testing.T) {
+	t.Parallel()
+
+	meta := domain.Metadata{
+		Width:        1920,
+		Height:       1080,
+		Duration:     "24:00",
+		MIME:         "video/x-matroska",
+		Thumb:        "thumbs/sample_thumb.jpg",
+		Playback:     "playback/sample_playback.mp4",
+		PlaybackMIME: "video/mp4",
+		HLS:          "hls/sample/index.m3u8",
+		Processing:   true,
+	}
+
+	value, err := metadataValue(meta)
+	if err != nil {
+		t.Fatalf("metadataValue(): %v", err)
+	}
+
+	var scanned metadataJSON
+	if err := scanned.Scan(value); err != nil {
+		t.Fatalf("Scan(): %v", err)
+	}
+
+	got := metadataToDomain(scanned)
+	if got != meta {
+		t.Fatalf("metadata round trip = %#v, want %#v", got, meta)
+	}
 }
 
 func assertConnectionPragmas(t *testing.T, db *sql.DB) {

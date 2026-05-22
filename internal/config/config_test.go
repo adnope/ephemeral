@@ -14,6 +14,7 @@ func TestParseByteSize(t *testing.T) {
 		want int64
 	}{
 		{name: "bytes", raw: "1024", want: 1024},
+		{name: "zero", raw: "0", want: 0},
 		{name: "binary mib", raw: "10MiB", want: 10 << 20},
 		{name: "binary with space", raw: "2 GiB", want: 2 << 30},
 		{name: "decimal mb", raw: "1.5MB", want: 1_500_000},
@@ -49,6 +50,9 @@ func TestLoadRuntimeTuningEnv(t *testing.T) {
 	t.Setenv("TEXT_PREVIEW_MAX", "512KiB")
 	t.Setenv("BODY_INDEX_MAX", "1MiB")
 	t.Setenv("MEDIA_WORKER_COUNT", "3")
+	t.Setenv("MEDIA_PROCESS_TIMEOUT", "45m")
+	t.Setenv("HLS_MIN_SIZE", "0")
+	t.Setenv("HLS_MIN_DURATION", "0")
 	t.Setenv("UPLOAD_CONCURRENCY", "42")
 
 	cfg, err := Load()
@@ -69,6 +73,9 @@ func TestLoadRuntimeTuningEnv(t *testing.T) {
 		cfg.TextPreviewMaxBytes != 512<<10 ||
 		cfg.BodyIndexMaxBytes != 1<<20 ||
 		cfg.MediaWorkerCount != 3 ||
+		cfg.MediaProcessTimeout != 45*time.Minute ||
+		cfg.HLSMinBytes != 0 ||
+		cfg.HLSMinDuration != 0 ||
 		cfg.UploadConcurrency != MaxUploadConcurrency {
 		t.Fatalf("unexpected tuning config: %#v", cfg)
 	}

@@ -65,7 +65,12 @@ func main() {
 
 	uploadStorage := filesystem.NewUploadStorage(cfg.DataDir)
 	mediaClassifier := media.NewClassifier()
-	mediaPool, err := media.NewPool(itemRepo, broker, cfg.MediaWorkerCount)
+	mediaPool, err := media.NewPool(itemRepo, broker, media.PoolOptions{
+		WorkerCount:    cfg.MediaWorkerCount,
+		ProcessTimeout: cfg.MediaProcessTimeout,
+		HLSMinBytes:    cfg.HLSMinBytes,
+		HLSMinDuration: cfg.HLSMinDuration,
+	})
 	if err != nil {
 		logger.Error("media pool init failed", "err", err)
 		os.Exit(1)

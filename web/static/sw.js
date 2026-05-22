@@ -1,4 +1,4 @@
-const CACHE_VERSION = "ephemeral-v2";
+const CACHE_VERSION = "ephemeral-v3";
 
 const SHELL_ASSETS = [
   "/",

@@ -20,10 +20,14 @@ func TestItemToResponseFileURLs(t *testing.T) {
 		Filename: "sample video.mp4",
 		Filesize: 2048,
 		Metadata: domain.Metadata{
-			Width:  640,
-			Height: 480,
-			MIME:   "video/mp4",
-			Thumb:  "thumbs/sample video.jpg",
+			Width:        640,
+			Height:       480,
+			MIME:         "video/mp4",
+			Thumb:        "thumbs/sample video.jpg",
+			Playback:     "playback/sample video_playback.mp4",
+			PlaybackMIME: "video/mp4",
+			HLS:          "hls/sample video/index.m3u8",
+			Processing:   true,
 		},
 		CreatedAt: createdAt,
 	}
@@ -44,6 +48,18 @@ func TestItemToResponseFileURLs(t *testing.T) {
 	}
 	if got.Metadata.ThumbnailURL != "/api/files/thumbs%2Fsample%20video.jpg" {
 		t.Fatalf("ThumbnailURL = %q", got.Metadata.ThumbnailURL)
+	}
+	if got.Metadata.PlaybackURL != "/api/files/playback%2Fsample%20video_playback.mp4" {
+		t.Fatalf("PlaybackURL = %q", got.Metadata.PlaybackURL)
+	}
+	if got.Metadata.PlaybackMIME != "video/mp4" {
+		t.Fatalf("PlaybackMIME = %q", got.Metadata.PlaybackMIME)
+	}
+	if got.Metadata.HLSURL != "/api/files/hls%2Fsample%20video%2Findex.m3u8" {
+		t.Fatalf("HLSURL = %q", got.Metadata.HLSURL)
+	}
+	if !got.Metadata.Processing {
+		t.Fatal("Processing = false, want true")
 	}
 	if got.CreatedAtEpochMillis != createdAt.UnixMilli() {
 		t.Fatalf("CreatedAtEpochMillis = %d, want %d", got.CreatedAtEpochMillis, createdAt.UnixMilli())

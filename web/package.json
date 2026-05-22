@@ -1,7 +1,9 @@
 {
   "type": "module",
   "scripts": {
-    "build-vendor": "esbuild node_modules/shiki/dist/bundle-web.mjs --bundle --format=esm --target=es2022 --platform=browser --outfile=static/vendor/shiki.bundle.mjs",
+    "build-vendor": "npm run build-shiki && npm run build-hls",
+    "build-shiki": "esbuild node_modules/shiki/dist/bundle-web.mjs --bundle --format=esm --target=es2022 --platform=browser --outfile=static/vendor/shiki.bundle.mjs",
+    "build-hls": "esbuild node_modules/hls.js/dist/hls.light.mjs --bundle --minify --format=esm --target=es2022 --platform=browser --outfile=static/vendor/hls.bundle.mjs",
     "format": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\"",
     "lint": "eslint \"**/*.js\"",
     "fix": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\" && eslint \"**/*.js\" --fix"
@@ -14,6 +16,7 @@
     "prettier": "latest"
   },
   "dependencies": {
+    "hls.js": "^1.6.16",
     "shiki": "^4.0.2"
   }
 }

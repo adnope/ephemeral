@@ -25,6 +25,9 @@ type Config struct {
 	TextPreviewMaxBytes int64
 	BodyIndexMaxBytes   int64
 	MediaWorkerCount    int
+	MediaProcessTimeout time.Duration
+	HLSMinBytes         int64
+	HLSMinDuration      time.Duration
 	UploadConcurrency   int
 }
 
@@ -40,6 +43,9 @@ func Load() (*Config, error) {
 		TextPreviewMaxBytes: 10 << 20,
 		BodyIndexMaxBytes:   20 << 20,
 		MediaWorkerCount:    1,
+		MediaProcessTimeout: 30 * time.Minute,
+		HLSMinBytes:         100 << 20,
+		HLSMinDuration:      5 * time.Minute,
 		UploadConcurrency:   1,
 	}
 
@@ -99,6 +105,15 @@ func Load() (*Config, error) {
 	if err := loadPositiveInt("MEDIA_WORKER_COUNT", &cfg.MediaWorkerCount); err != nil {
 		return nil, err
 	}
+	if err := loadPositiveDuration("MEDIA_PROCESS_TIMEOUT", &cfg.MediaProcessTimeout); err != nil {
+		return nil, err
+	}
+	if err := loadNonNegativeByteSize("HLS_MIN_SIZE", &cfg.HLSMinBytes); err != nil {
+		return nil, err
+	}
+	if err := loadNonNegativeDuration("HLS_MIN_DURATION", &cfg.HLSMinDuration); err != nil {
+		return nil, err
+	}
 	if err := loadBoundedPositiveInt("UPLOAD_CONCURRENCY", &cfg.UploadConcurrency, MaxUploadConcurrency); err != nil {
 		return nil, err
 	}
@@ -107,6 +122,8 @@ func Load() (*Config, error) {
 		cfg.DataDir,
 		cfg.DataDir + "/uploads",
 		cfg.DataDir + "/uploads/thumbs",
+		cfg.DataDir + "/uploads/playback",
+		cfg.DataDir + "/uploads/hls",
 	}
 	for _, d := range dirs {
 		if err := os.MkdirAll(d, 0o755); err != nil {
@@ -186,6 +203,60 @@ func loadByteSize(name string, target *int64) error {
 	return nil
 }
 
+func loadNonNegativeByteSize(name string, target *int64) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := parseByteSize(value)
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+	if parsed < 0 {
+		return fmt.Errorf("config: %s must be non-negative", name)
+	}
+
+	*target = parsed
+	return nil
+}
+
+func loadPositiveDuration(name string, target *time.Duration) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := parseDurationWithDays(value)
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+	if parsed <= 0 {
+		return fmt.Errorf("config: %s must be positive", name)
+	}
+
+	*target = parsed
+	return nil
+}
+
+func loadNonNegativeDuration(name string, target *time.Duration) error {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+
+	parsed, err := parseDurationWithDays(value)
+	if err != nil {
+		return fmt.Errorf("config: invalid %s %q: %w", name, value, err)
+	}
+	if parsed < 0 {
+		return fmt.Errorf("config: %s must be non-negative", name)
+	}
+
+	*target = parsed
+	return nil
+}
+
 func parseTrustedProxies(value string) ([]netip.Prefix, error) {
 	parts := strings.Split(value, ",")
 	proxies := make([]netip.Prefix, 0, len(parts))
@@ -257,8 +328,8 @@ func parseByteSize(value string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if number <= 0 {
-		return 0, fmt.Errorf("size must be positive")
+	if number < 0 {
+		return 0, fmt.Errorf("size must be non-negative")
 	}
 
 	multiplier, ok := byteSizeMultipliers[strings.ToLower(unitPart)]

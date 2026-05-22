@@ -93,11 +93,15 @@ func NewUserRepository(db *sql.DB) domain.UserRepository {
 }
 
 type metadataJSON struct {
-	Width    int    `json:"width,omitempty"`
-	Height   int    `json:"height,omitempty"`
-	Duration string `json:"duration,omitempty"`
-	MIME     string `json:"mime,omitempty"`
-	Thumb    string `json:"thumb,omitempty"`
+	Width        int    `json:"width,omitempty"`
+	Height       int    `json:"height,omitempty"`
+	Duration     string `json:"duration,omitempty"`
+	MIME         string `json:"mime,omitempty"`
+	Thumb        string `json:"thumb,omitempty"`
+	Playback     string `json:"playback,omitempty"`
+	PlaybackMIME string `json:"playbackMime,omitempty"`
+	HLS          string `json:"hls,omitempty"`
+	Processing   bool   `json:"processing,omitempty"`
 }
 
 func (m *metadataJSON) Scan(src any) error {
@@ -134,21 +138,29 @@ func metadataValue(meta domain.Metadata) (string, error) {
 
 func metadataFromDomain(meta domain.Metadata) metadataJSON {
 	return metadataJSON{
-		Width:    meta.Width,
-		Height:   meta.Height,
-		Duration: meta.Duration,
-		MIME:     meta.MIME,
-		Thumb:    meta.Thumb,
+		Width:        meta.Width,
+		Height:       meta.Height,
+		Duration:     meta.Duration,
+		MIME:         meta.MIME,
+		Thumb:        meta.Thumb,
+		Playback:     meta.Playback,
+		PlaybackMIME: meta.PlaybackMIME,
+		HLS:          meta.HLS,
+		Processing:   meta.Processing,
 	}
 }
 
 func metadataToDomain(meta metadataJSON) domain.Metadata {
 	return domain.Metadata{
-		Width:    meta.Width,
-		Height:   meta.Height,
-		Duration: meta.Duration,
-		MIME:     meta.MIME,
-		Thumb:    meta.Thumb,
+		Width:        meta.Width,
+		Height:       meta.Height,
+		Duration:     meta.Duration,
+		MIME:         meta.MIME,
+		Thumb:        meta.Thumb,
+		Playback:     meta.Playback,
+		PlaybackMIME: meta.PlaybackMIME,
+		HLS:          meta.HLS,
+		Processing:   meta.Processing,
 	}
 }
 

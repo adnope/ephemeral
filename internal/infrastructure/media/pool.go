@@ -12,24 +12,42 @@ import (
 )
 
 type Pool struct {
-	jobs   chan domain.MediaJob
-	repo   domain.ItemRepository
-	broker domain.EventBroker
-	wg     sync.WaitGroup
+	jobs    chan domain.MediaJob
+	repo    domain.ItemRepository
+	broker  domain.EventBroker
+	options PoolOptions
+	wg      sync.WaitGroup
 }
 
-func NewPool(repo domain.ItemRepository, broker domain.EventBroker, workerCount int) (*Pool, error) {
-	if workerCount <= 0 {
+type PoolOptions struct {
+	WorkerCount    int
+	ProcessTimeout time.Duration
+	HLSMinBytes    int64
+	HLSMinDuration time.Duration
+}
+
+func NewPool(repo domain.ItemRepository, broker domain.EventBroker, options PoolOptions) (*Pool, error) {
+	if options.WorkerCount <= 0 {
 		return nil, fmt.Errorf("media worker count must be positive")
+	}
+	if options.ProcessTimeout <= 0 {
+		return nil, fmt.Errorf("media process timeout must be positive")
+	}
+	if options.HLSMinBytes < 0 {
+		return nil, fmt.Errorf("hls min bytes must be non-negative")
+	}
+	if options.HLSMinDuration < 0 {
+		return nil, fmt.Errorf("hls min duration must be non-negative")
 	}
 
 	pool := &Pool{
-		jobs:   make(chan domain.MediaJob, 16),
-		repo:   repo,
-		broker: broker,
+		jobs:    make(chan domain.MediaJob, 16),
+		repo:    repo,
+		broker:  broker,
+		options: options,
 	}
-	pool.wg.Add(workerCount)
-	for i := 0; i < workerCount; i++ {
+	pool.wg.Add(options.WorkerCount)
+	for i := 0; i < options.WorkerCount; i++ {
 		go pool.worker()
 	}
 	return pool, nil
@@ -70,7 +88,7 @@ func (p *Pool) worker() {
 }
 
 func (p *Pool) process(job domain.MediaJob) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), p.options.ProcessTimeout)
 	defer cancel()
 
 	meta := domain.Metadata{MIME: job.MIMEType}
@@ -91,21 +109,39 @@ func (p *Pool) process(job domain.MediaJob) error {
 		meta.Thumb = thumbRelPath
 
 	case strings.HasPrefix(job.MIMEType, "video/"):
-		videoMeta, err := extractVideoMeta(ctx, job.FilePath, job.MIMEType)
+		videoInfo, err := extractVideoInfo(ctx, job.FilePath, job.MIMEType)
 		if err != nil {
 			slog.Warn("video metadata extraction skipped", "path", job.FilePath, "err", err)
 			break
 		}
-		meta = videoMeta
+		meta = videoInfo.Metadata
 
 		thumbRelPath, err := generateThumbnail(ctx, job.FilePath)
 		if err != nil {
 			slog.Warn("thumbnail generation skipped", "path", job.FilePath, "err", err)
+		} else {
+			meta.Thumb = thumbRelPath
+		}
+
+		playback, err := generateBrowserPlayback(ctx, job.FilePath, videoInfo)
+		if err != nil {
+			slog.Warn("video playback copy generation skipped", "path", job.FilePath, "err", err)
 			break
 		}
-		meta.Thumb = thumbRelPath
+		meta.Playback = playback.RelPath
+		meta.PlaybackMIME = playback.MIME
+
+		if shouldGenerateHLS(job.Size, videoInfo.Duration, p.options) {
+			hls, err := generateHLS(ctx, job.FilePath, playback.AbsPath)
+			if err != nil {
+				slog.Warn("hls generation skipped", "path", job.FilePath, "err", err)
+				break
+			}
+			meta.HLS = hls.RelPath
+		}
 	}
 
+	meta.Processing = false
 	if err := p.repo.UpdateMetadata(ctx, job.ItemID, meta); err != nil {
 		return err
 	}

@@ -146,6 +146,39 @@
 
     {{template "text_viewer_dialog" .}} {{template "text_viewer_scripts" .}}
     {{template "media_scripts" .}}
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!window.EventSource || !window.htmx) return;
+
+        const es = new EventSource("/api/events");
+        let refreshTimer = 0;
+
+        const refreshHistory = () => {
+          window.clearTimeout(refreshTimer);
+          refreshTimer = window.setTimeout(() => {
+            window.htmx.ajax(
+              "GET",
+              `${window.location.pathname}${window.location.search}`,
+              {
+                target: "#gallery-grid",
+                swap: "innerHTML",
+              },
+            );
+          }, 250);
+        };
+
+        es.addEventListener("item:new", refreshHistory);
+        es.addEventListener("item:updated", refreshHistory);
+        es.addEventListener("item:deleted", (event) => {
+          const id = Number.parseInt(event.data, 10);
+          if (Number.isFinite(id) && window.removeItemFromDOM) {
+            window.removeItemFromDOM(id);
+            return;
+          }
+          refreshHistory();
+        });
+      });
+    </script>
   </body>
 </html>
 {{end}} {{define "history_items"}} {{range .Items}}
@@ -192,16 +225,25 @@
     {{template "media_dialog_actions" .}} {{template "media_dialog_nav_history"
     .}} {{template "media_dialog_meta" .}}
 
-    <video
-      controls
-      preload="none"
-      {{if
-      .Metadata.Thumb}}poster="{{fileURL .Metadata.Thumb}}"
+    <div class="media-dialog-body">
+      {{if .Metadata.Processing}} {{template "media_processing_panel" .}}
+      {{else}}
+      <video
+        controls
+        preload="metadata"
+        playsinline
+        {{if
+        .Metadata.HLS}}data-hls-src="{{fileURL .Metadata.HLS}}"
+        {{end}}
+        {{if
+        .Metadata.Thumb}}poster="{{fileURL .Metadata.Thumb}}"
+        {{end}}
+        class="media-dialog-video"
+      >
+        {{template "media_video_sources" .}}
+      </video>
       {{end}}
-      class="media-dialog-video"
-    >
-      <source src="{{fileURL .Content}}" type="{{.Metadata.MIME}}" />
-    </video>
+    </div>
   </dialog>
 
   {{if .Metadata.Thumb}}
@@ -220,6 +262,8 @@
       loading="lazy"
     />
     <span class="video-play-overlay">&#9654;</span>
+    {{if .Metadata.Processing}} {{template "video_processing_indicator" .}}
+    {{end}}
   </div>
   {{else}}
   <div
@@ -232,6 +276,8 @@
   >
     <span class="video-placeholder-play">&#9654;</span>
     <span>Video</span>
+    {{if .Metadata.Processing}} {{template "video_processing_indicator" .}}
+    {{end}}
   </div>
   {{end}} {{else}}
   <div class="gallery-file-info">

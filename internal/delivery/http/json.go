@@ -27,6 +27,10 @@ type itemMetadataResponse struct {
 	Duration     string `json:"duration"`
 	MIME         string `json:"mime"`
 	ThumbnailURL string `json:"thumbnailUrl"`
+	PlaybackURL  string `json:"playbackUrl"`
+	PlaybackMIME string `json:"playbackMime"`
+	HLSURL       string `json:"hlsUrl"`
+	Processing   bool   `json:"processing"`
 }
 
 type itemResponse struct {
@@ -135,6 +139,14 @@ func itemToResponse(item *domain.Item) itemResponse {
 	if item.Metadata.Thumb != "" {
 		thumbnailURL = apiFileURL(item.Metadata.Thumb)
 	}
+	var playbackURL string
+	if item.Metadata.Playback != "" {
+		playbackURL = apiFileURL(item.Metadata.Playback)
+	}
+	var hlsURL string
+	if item.Metadata.HLS != "" {
+		hlsURL = apiFileURL(item.Metadata.HLS)
+	}
 
 	return itemResponse{
 		ID:                   item.ID,
@@ -151,6 +163,10 @@ func itemToResponse(item *domain.Item) itemResponse {
 			Duration:     item.Metadata.Duration,
 			MIME:         item.Metadata.MIME,
 			ThumbnailURL: thumbnailURL,
+			PlaybackURL:  playbackURL,
+			PlaybackMIME: item.Metadata.PlaybackMIME,
+			HLSURL:       hlsURL,
+			Processing:   item.Metadata.Processing,
 		},
 	}
 }

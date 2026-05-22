@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -158,6 +159,9 @@ func (uc *ItemUseCase) UploadFile(ctx context.Context, filename string, reader i
 		Filesize: stored.Size,
 		Metadata: domain.Metadata{MIME: mimeType},
 	}
+	if item.Type == domain.ItemTypeVideo {
+		item.Metadata.Processing = true
+	}
 
 	id, err := uc.items.Create(ctx, item)
 	if err != nil {
@@ -174,6 +178,7 @@ func (uc *ItemUseCase) UploadFile(ctx context.Context, filename string, reader i
 		ItemID:   id,
 		FilePath: stored.AbsolutePath,
 		MIMEType: mimeType,
+		Size:     stored.Size,
 	})
 
 	return item, nil
@@ -197,6 +202,12 @@ func (uc *ItemUseCase) DeleteItem(ctx context.Context, id int64) error {
 		uc.removeUploadBestEffort(item.Content)
 		if item.Metadata.Thumb != "" {
 			uc.removeUploadBestEffort(item.Metadata.Thumb)
+		}
+		if item.Metadata.Playback != "" {
+			uc.removeUploadBestEffort(item.Metadata.Playback)
+		}
+		if hlsDir := hlsUploadDir(item.Metadata.HLS); hlsDir != "" {
+			uc.removeUploadTreeBestEffort(hlsDir)
 		}
 	}
 
@@ -303,6 +314,25 @@ func (uc *ItemUseCase) removeUploadBestEffort(content string) {
 	if err := uc.storage.Remove(content); err != nil {
 		uc.log.Warn("delete item remove upload failed", "content", content, "err", err)
 	}
+}
+
+func (uc *ItemUseCase) removeUploadTreeBestEffort(content string) {
+	if err := uc.storage.RemoveTree(content); err != nil {
+		uc.log.Warn("delete item remove upload tree failed", "content", content, "err", err)
+	}
+}
+
+func hlsUploadDir(playlist string) string {
+	cleanPath := pathpkg.Clean(playlist)
+	if cleanPath == "." || !strings.HasPrefix(cleanPath, "hls/") {
+		return ""
+	}
+
+	dir := pathpkg.Dir(cleanPath)
+	if dir == "." || dir == "hls" {
+		return ""
+	}
+	return dir
 }
 
 func nextCursor(items []*domain.Item, limit int) int64 {

@@ -34,11 +34,16 @@ MAX_UPLOAD_SIZE=2GiB
 TEXT_PREVIEW_MAX=10MiB
 BODY_INDEX_MAX=20MiB
 MEDIA_WORKER_COUNT=1
+MEDIA_PROCESS_TIMEOUT=30m
+HLS_MIN_SIZE=100MiB
+HLS_MIN_DURATION=5m
 UPLOAD_CONCURRENCY=1
 ```
 
 Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
+Duration values accept Go duration strings such as `5m`, `30m`, or `1h`; `SESSION_TTL` also accepts day values such as `30d`.
 JSON request bodies for JSON endpoints are limited to 64 KiB. `UPLOAD_CONCURRENCY` is enforced server-side and capped at 10.
+Video uploads always get an asynchronous browser-friendly MP4 playback copy when FFmpeg succeeds. HLS is generated when either `HLS_MIN_SIZE` or `HLS_MIN_DURATION` is reached; set both to `0` to generate HLS for every video. The browser UI uses native HLS when available, HLS.js when MediaSource is available, and MP4 fallback otherwise.
 
 ## JSON API Conventions
 
@@ -88,12 +93,16 @@ Mobile item JSON shape:
     "height": 480,
     "duration": "",
     "mime": "image/jpeg",
-    "thumbnailUrl": "/api/files/thumbs%2F..."
+    "thumbnailUrl": "/api/files/thumbs%2F...",
+    "playbackUrl": "",
+    "playbackMime": "",
+    "hlsUrl": "",
+    "processing": false
   }
 }
 ```
 
-For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and file URLs point to the existing file-serving endpoint.
+For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and `contentUrl` / `downloadUrl` point to the original upload. Video clients should show a processing state while `metadata.processing` is true, then prefer `metadata.hlsUrl` when supported, then `metadata.playbackUrl`, and fall back to `contentUrl`.
 
 Mobile page JSON shape:
 
@@ -369,6 +378,7 @@ The response is one mobile item JSON object.
 - Rejects requests above `MAX_UPLOAD_SIZE`.
 - Creates an `items` database row.
 - For images/videos, metadata extraction and thumbnail generation run asynchronously.
+- For videos, browser-friendly MP4 playback copy generation runs asynchronously. Large or long videos also get HLS playlists and segments based on runtime thresholds.
 - For text/code-like files up to `BODY_INDEX_MAX`, body content is indexed into SQLite FTS5 for history body search.
 
 **Side effects**
@@ -389,13 +399,15 @@ item:updated
 
 ### `GET /api/files/{path}`
 
-Serves an uploaded file or generated thumbnail.
+Serves an uploaded file, generated thumbnail, generated MP4 playback copy, or generated HLS playlist/segment.
 
 **Examples**
 
 ```http
 GET /api/files/1710000000000_photo.png
 GET /api/files/thumbs/1710000000000_video_thumb.jpg
+GET /api/files/playback/1710000000000_video_playback.mp4
+GET /api/files/hls/1710000000000_video/index.m3u8
 ```
 
 **Response**
@@ -586,7 +598,7 @@ events.onerror = (error) => {
 | Event          | Description                                        |
 | -------------- | -------------------------------------------------- |
 | `item:new`     | New text message or uploaded file was created      |
-| `item:updated` | Background metadata/thumbnail processing completed |
+| `item:updated` | Background media metadata, thumbnail, and playback processing completed |
 | `item:deleted` | Item was permanently deleted                       |
 
 ## Data Model Summary
@@ -602,16 +614,22 @@ file
 
 Generic files may be previewable as text/code if their MIME type or extension is supported.
 
-Image and video thumbnails are stored under:
+Image and video thumbnails, video playback copies, and HLS outputs are stored under:
 
 ```text
 uploads/thumbs/
+uploads/playback/
+uploads/hls/
 ```
 
-and referenced through metadata as:
+and referenced through metadata as relative upload paths:
 
 ```json
 {
-  "thumb": "thumbs/example_thumb.jpg"
+  "thumb": "thumbs/example_thumb.jpg",
+  "playback": "playback/example_playback.mp4",
+  "playbackMime": "video/mp4",
+  "hls": "hls/example/index.m3u8",
+  "processing": false
 }
 ```

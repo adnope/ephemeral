@@ -32,7 +32,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 ## Features:
 
 - Chat-style feed
-- Image and video media viewer with thumbnail preview
+- Image and video media viewer with thumbnail preview and browser-friendly video playback copies
 - Generic file view/download
 - Code and text file viewer with syntax highlighting
 - Upload progress queue for file uploads
@@ -49,6 +49,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 - SQLite
 - Alpine.js
 - HTMX
+- HLS.js
 - FFmpeg
 - Docker & Docker Compose
 
@@ -79,10 +80,14 @@ MAX_UPLOAD_SIZE=2GiB
 TEXT_PREVIEW_MAX=10MiB
 BODY_INDEX_MAX=20MiB
 MEDIA_WORKER_COUNT=1
+MEDIA_PROCESS_TIMEOUT=30m
+HLS_MIN_SIZE=100MiB
+HLS_MIN_DURATION=5m
 UPLOAD_CONCURRENCY=1
 ```
 
 Size values accept bytes or `KB`, `MB`, `GB`, `TB`, `KiB`, `MiB`, `GiB`, `TiB`.
+Video uploads are processed asynchronously with FFmpeg. The original file is kept for download, a faststart MP4 playback copy is generated for browser playback, and HLS is generated when either `HLS_MIN_SIZE` or `HLS_MIN_DURATION` is reached. The browser UI uses native HLS when available, HLS.js when MediaSource is available, and MP4 fallback otherwise. Set both HLS thresholds to `0` to generate HLS for every video.
 `UPLOAD_CONCURRENCY` is capped at 10. Set `COOKIE_SECURE=true` when serving only over HTTPS. Set `TRUSTED_PROXIES` to comma-separated proxy IPs/CIDRs only when a trusted reverse proxy sets forwarding headers.
 
 Create local env file:

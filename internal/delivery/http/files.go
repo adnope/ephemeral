@@ -31,6 +31,14 @@ func (h *Handler) ServeFile(w http.ResponseWriter, r *http.Request) {
 
 func setUploadFileHeaders(w http.ResponseWriter, relPath string) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	if strings.HasPrefix(filepath.ToSlash(relPath), "hls/") {
+		switch strings.ToLower(filepath.Ext(relPath)) {
+		case ".m3u8":
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		case ".ts":
+			w.Header().Set("Content-Type", "video/mp2t")
+		}
+	}
 	if isActiveUploadDocument(relPath) {
 		w.Header().Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'unsafe-inline'")
 	}

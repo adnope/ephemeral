@@ -11,16 +11,23 @@
     {{template "media_dialog_meta" .}}
 
     <div class="media-dialog-body">
+      {{if .Metadata.Processing}} {{template "media_processing_panel" .}}
+      {{else}}
       <video
         controls
-        preload="none"
+        preload="metadata"
+        playsinline
+        {{if
+        .Metadata.HLS}}data-hls-src="{{fileURL .Metadata.HLS}}"
+        {{end}}
         {{if
         .Metadata.Thumb}}poster="{{fileURL .Metadata.Thumb}}"
         {{end}}
         class="media-dialog-video"
       >
-        <source src="{{fileURL .Content}}" type="{{.Metadata.MIME}}" />
+        {{template "media_video_sources" .}}
       </video>
+      {{end}}
     </div>
   </dialog>
 
@@ -41,6 +48,8 @@
         loading="lazy"
       />
       <span class="video-play-overlay">&#9654;</span>
+      {{if .Metadata.Processing}} {{template "video_processing_indicator" .}}
+      {{end}}
     </div>
     {{else}}
     <div
@@ -53,6 +62,8 @@
     >
       <span class="video-placeholder-play">&#9654;</span>
       <span>Video</span>
+      {{if .Metadata.Processing}} {{template "video_processing_indicator" .}}
+      {{end}}
     </div>
     {{end}}
   </div>

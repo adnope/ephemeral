@@ -489,6 +489,31 @@ header h1 {
   font-size: 24px;
 }
 
+.video-processing-indicator {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(17, 24, 39, 0.82);
+  color: white;
+  font-size: 12px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.media-processing-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--color-text-muted);
+  font-size: 16px;
+}
+
 dialog.media-dialog {
   width: min(96vw, 1200px);
   height: min(96vh, 900px);
