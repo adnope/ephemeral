@@ -1,6 +1,6 @@
 # Ephemeral API Documentation
 
-Ephemeral provides a minimal set of authenticated endpoints for sharing text, uploading files, browsing history, previewing files, deleting items, and receiving real-time updates.
+Ephemeral provides a minimal set of authenticated endpoints for sharing text, uploading files, creating public file links, browsing history, previewing files, deleting items, and receiving real-time updates.
 
 ## Authentication
 
@@ -73,6 +73,7 @@ forbidden
 not_found
 payload_too_large
 unsupported_preview
+unsupported_share
 server_error
 ```
 
@@ -465,6 +466,107 @@ Generated HLS files use these response content types:
 
 ---
 
+### `POST /api/items/{id}/public-link`
+
+Creates or replaces the public link for one uploaded item.
+
+Text items cannot be shared as public file links. Uploaded images and videos open in a browser-view page. Generic files download when the public link is opened.
+
+**Auth**
+
+Requires `session_token`.
+
+**Content-Type**
+
+```http
+application/json
+```
+
+**Body**
+
+`expires_in_seconds` controls expiry. Use `null` for a link that never expires.
+
+```json
+{
+  "expires_in_seconds": 604800
+}
+```
+
+Never expire:
+
+```json
+{
+  "expires_in_seconds": null
+}
+```
+
+**Response**
+
+```json
+{
+  "url": "/share/7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "token": "7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "expires_at": "2026-06-01T08:00:00Z"
+}
+```
+
+For non-expiring links, `expires_at` is `null`.
+
+**Status codes**
+
+|  Code | Meaning                                     |
+| ----: | ------------------------------------------- |
+| `200` | Link created or replaced                    |
+| `400` | Invalid item ID, JSON body, or expiry       |
+| `404` | Item not found                              |
+| `413` | JSON body too large                         |
+| `415` | Item cannot be shared as a public file link |
+| `500` | Link creation failed                        |
+
+---
+
+### `DELETE /api/items/{id}/public-link`
+
+Revokes the public link for one item. The operation is idempotent when the item has no active link.
+
+**Auth**
+
+Requires `session_token`.
+
+**Response**
+
+```text
+204 No Content
+```
+
+Validation/not-found/server errors use the shared JSON error shape.
+
+---
+
+### `GET /share/{token}`
+
+Public route. Does not require `session_token`.
+
+**Behavior**
+
+- Returns `404` for missing, malformed, expired, revoked, or deleted-item links.
+- Image and video links render an HTML page with browser media controls.
+- Video pages use the generated browser-friendly MP4 playback copy when available, then fall back to the original upload.
+- Generic file links return the original file with `Content-Disposition: attachment`.
+- Public file responses set `Cache-Control: private, no-store`.
+
+Supporting public media URLs are implementation-owned and may be used by the rendered page:
+
+```text
+GET /share/{token}/file
+GET /share/{token}/download
+GET /share/{token}/thumb
+```
+
+`/share/{token}/download` always serves the original uploaded file as an attachment.
+
+---
+
 ### `GET /api/file-preview/{id}`
 
 Returns bounded text/code file content for the in-app preview dialog.
@@ -656,6 +758,7 @@ file
 ```
 
 Generic files may be previewable as text/code if their MIME type or extension is supported.
+Public file links are stored separately from items using an opaque random token, an `item_id`, and a nullable `expires_at`. Deleting an item cascades to its public link.
 
 Image and video thumbnails, video playback copies, and HLS outputs are stored under:
 

@@ -6,6 +6,16 @@
 
   <button
     type="button"
+    class="btn"
+    data-share-id="{{.ID}}"
+    data-share-filename="{{.Filename}}"
+    onclick="openPublicShareDialog(this)"
+  >
+    Share link
+  </button>
+
+  <button
+    type="button"
     class="btn media-dialog-delete-btn"
     data-delete-id="{{.ID}}"
     onclick="deleteItemFromElement(this)"
@@ -169,6 +179,201 @@
 
   <div id="textViewerCode" class="text-viewer-code"></div>
 </dialog>
+{{end}} {{define "public_share_dialog"}}
+<dialog id="publicShareDialog" class="public-share-dialog">
+  <form class="public-share-form" onsubmit="createPublicShareLink(event)">
+    <div class="public-share-dialog-header">
+      <div>
+        <div class="public-share-dialog-title">Public link</div>
+        <div
+          id="publicShareFilename"
+          class="public-share-dialog-filename"
+        ></div>
+      </div>
+
+      <button
+        type="button"
+        class="public-share-close"
+        onclick="closePublicShareDialog()"
+      >
+        ×
+      </button>
+    </div>
+
+    <input type="hidden" id="publicShareItemID" />
+
+    <label class="public-share-field">
+      <span>Expires</span>
+      <select id="publicShareExpiry">
+        <option value="">Never</option>
+        <option value="3600">1 hour</option>
+        <option value="86400">24 hours</option>
+        <option value="604800">7 days</option>
+        <option value="2592000">30 days</option>
+      </select>
+    </label>
+
+    <button
+      type="submit"
+      id="publicShareCreate"
+      class="btn public-share-primary"
+    >
+      Create link
+    </button>
+
+    <div id="publicShareResult" class="public-share-result" hidden>
+      <input id="publicShareURL" type="text" readonly />
+      <div class="public-share-result-actions">
+        <button type="button" class="btn" onclick="copyPublicShareLink()">
+          Copy
+        </button>
+        <a
+          id="publicShareOpen"
+          href="#"
+          target="_blank"
+          rel="noopener"
+          class="btn"
+        >
+          Open
+        </a>
+        <button
+          type="button"
+          class="btn public-share-revoke"
+          onclick="revokePublicShareLink()"
+        >
+          Revoke
+        </button>
+      </div>
+    </div>
+
+    <div id="publicShareStatus" class="public-share-status" role="status"></div>
+  </form>
+</dialog>
+{{end}} {{define "public_share_scripts"}}
+<script>
+  window.openPublicShareDialog = function (trigger) {
+    if (!(trigger instanceof HTMLElement)) return;
+
+    const itemID = Number.parseInt(trigger.dataset.shareId || "", 10);
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    document
+      .querySelectorAll(".bubble-menu-wrap.is-open")
+      .forEach((menu) => menu.classList.remove("is-open"));
+
+    const dialog = document.getElementById("publicShareDialog");
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    document.getElementById("publicShareItemID").value = String(itemID);
+    document.getElementById("publicShareFilename").textContent =
+      trigger.dataset.shareFilename || "";
+    document.getElementById("publicShareExpiry").value = "";
+    document.getElementById("publicShareURL").value = "";
+    document.getElementById("publicShareOpen").removeAttribute("href");
+    document.getElementById("publicShareResult").hidden = true;
+    document.getElementById("publicShareStatus").textContent = "";
+    document.getElementById("publicShareCreate").disabled = false;
+
+    if (!dialog.open) dialog.showModal();
+  };
+
+  window.closePublicShareDialog = function () {
+    const dialog = document.getElementById("publicShareDialog");
+    if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+  };
+
+  window.createPublicShareLink = async function (event) {
+    event.preventDefault();
+
+    const itemID = Number.parseInt(
+      document.getElementById("publicShareItemID").value || "",
+      10,
+    );
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    const createButton = document.getElementById("publicShareCreate");
+    const status = document.getElementById("publicShareStatus");
+    const expiry = document.getElementById("publicShareExpiry").value;
+
+    const body = {
+      expires_in_seconds: expiry === "" ? null : Number.parseInt(expiry, 10),
+    };
+
+    createButton.disabled = true;
+    status.textContent = "Creating...";
+
+    try {
+      const response = await fetch(
+        `/api/items/${encodeURIComponent(itemID)}/public-link`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`public link failed: HTTP ${response.status}`);
+      }
+
+      const link = await response.json();
+      const absoluteURL = new URL(link.url, window.location.origin).href;
+
+      document.getElementById("publicShareURL").value = absoluteURL;
+      document.getElementById("publicShareOpen").href = absoluteURL;
+      document.getElementById("publicShareResult").hidden = false;
+      status.textContent = "Link ready";
+    } catch (error) {
+      console.error(error);
+      status.textContent = "Could not create link.";
+    } finally {
+      createButton.disabled = false;
+    }
+  };
+
+  window.copyPublicShareLink = async function () {
+    const input = document.getElementById("publicShareURL");
+    const status = document.getElementById("publicShareStatus");
+    if (!input.value) return;
+
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    status.textContent = "Copied";
+  };
+
+  window.revokePublicShareLink = async function () {
+    const itemID = Number.parseInt(
+      document.getElementById("publicShareItemID").value || "",
+      10,
+    );
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    const status = document.getElementById("publicShareStatus");
+    status.textContent = "Revoking...";
+
+    const response = await fetch(
+      `/api/items/${encodeURIComponent(itemID)}/public-link`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+
+    if (!response.ok) {
+      status.textContent = "Could not revoke link.";
+      return;
+    }
+
+    document.getElementById("publicShareURL").value = "";
+    document.getElementById("publicShareOpen").removeAttribute("href");
+    document.getElementById("publicShareResult").hidden = true;
+    status.textContent = "Link revoked";
+  };
+</script>
 {{end}} {{define "text_viewer_scripts"}}
 <script type="module">
   const state = {

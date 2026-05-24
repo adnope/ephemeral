@@ -14,3 +14,12 @@ func TestSessionCookieCanBeSecure(t *testing.T) {
 		t.Fatal("HttpOnly = false, want true")
 	}
 }
+
+func TestPublicSharePathsSkipSessionAuth(t *testing.T) {
+	if !isPublicPath("/share/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+		t.Fatal("/share/{token} should be public")
+	}
+	if !isPublicPath("/share/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file") {
+		t.Fatal("/share/{token}/file should be public")
+	}
+}

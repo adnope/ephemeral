@@ -39,6 +39,16 @@
       >
         Download
       </a>
+      <button
+        type="button"
+        class="bubble-action-menu-item"
+        role="menuitem"
+        data-share-id="{{.ID}}"
+        data-share-filename="{{.Filename}}"
+        @click.stop="openPublicShareDialog($el)"
+      >
+        Share link
+      </button>
       {{end}}
 
       <button

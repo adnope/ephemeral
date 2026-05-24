@@ -58,6 +58,7 @@ func main() {
 	defer func() { _ = db.Close() }()
 
 	itemRepo := sqlite.NewItemRepository(db)
+	publicLinkRepo := sqlite.NewPublicLinkRepository(db)
 	sessionRepo := sqlite.NewSessionRepository(db)
 	userRepo := sqlite.NewUserRepository(db)
 
@@ -85,6 +86,7 @@ func main() {
 
 	itemUseCase := usecase.NewItemUseCase(
 		itemRepo,
+		publicLinkRepo,
 		broker,
 		mediaPool,
 		searchIndexer,
@@ -146,10 +148,16 @@ func main() {
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)
 	r.Delete("/api/items/{id}", h.DeleteItem)
+	r.Post("/api/items/{id}/public-link", h.CreatePublicLink)
+	r.Delete("/api/items/{id}/public-link", h.RevokePublicLink)
 	r.Get("/api/files/*", h.ServeFile)
 	r.Get("/api/file-preview/{id}", h.PreviewFile)
 	r.Post("/api/login", h.Login)
 	r.Post("/api/logout", h.Logout)
+	r.Get("/share/{token}", h.PublicShare)
+	r.Get("/share/{token}/file", h.PublicShareFile)
+	r.Get("/share/{token}/download", h.PublicShareDownload)
+	r.Get("/share/{token}/thumb", h.PublicShareThumb)
 
 	go func() {
 		if err := sessionRepo.PurgeExpired(context.Background()); err != nil {

@@ -50,6 +50,21 @@ type ItemRepository interface {
 	UpdateMetadata(ctx context.Context, id int64, meta Metadata) error
 }
 
+type PublicLink struct {
+	Token     string
+	ItemID    int64
+	ExpiresAt *time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type PublicLinkRepository interface {
+	UpsertForItem(ctx context.Context, link *PublicLink) (*PublicLink, error)
+	GetByToken(ctx context.Context, token string) (*PublicLink, error)
+	DeleteForItem(ctx context.Context, itemID int64) error
+	DeleteByToken(ctx context.Context, token string) error
+}
+
 type Event struct {
 	Type string
 	ID   int64

@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +20,7 @@ import (
 
 type ItemUseCase struct {
 	items      domain.ItemRepository
+	public     domain.PublicLinkRepository
 	broker     domain.EventBroker
 	media      domain.MediaService
 	search     domain.SearchService
@@ -43,8 +46,35 @@ type FilePreview struct {
 	DownloadURL string
 }
 
+type PublicLinkResult struct {
+	Token     string
+	URL       string
+	ExpiresAt *time.Time
+}
+
+type PublicShareView struct {
+	Token       string
+	Item        *domain.Item
+	SourceURL   string
+	PosterURL   string
+	DownloadURL string
+	DisplayMIME string
+	ExpiresAt   *time.Time
+}
+
+type PublicSharedFile struct {
+	Path     string
+	RelPath  string
+	Filename string
+	MIME     string
+	Inline   bool
+}
+
+const maxPublicLinkExpiry = 10 * 365 * 24 * time.Hour
+
 func NewItemUseCase(
 	items domain.ItemRepository,
+	public domain.PublicLinkRepository,
 	broker domain.EventBroker,
 	media domain.MediaService,
 	search domain.SearchService,
@@ -58,6 +88,7 @@ func NewItemUseCase(
 
 	return &ItemUseCase{
 		items:      items,
+		public:     public,
 		broker:     broker,
 		media:      media,
 		search:     search,
@@ -273,6 +304,226 @@ func (uc *ItemUseCase) ResolveUploadPath(content string) (string, error) {
 		return "", ErrForbidden
 	}
 	return path, nil
+}
+
+func (uc *ItemUseCase) CreatePublicLink(ctx context.Context, itemID int64, expiresIn *time.Duration) (PublicLinkResult, error) {
+	if itemID <= 0 {
+		return PublicLinkResult{}, fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
+	}
+	if uc.public == nil {
+		return PublicLinkResult{}, fmt.Errorf("public link repository is not configured")
+	}
+
+	item, err := uc.items.GetByID(ctx, itemID)
+	if err != nil {
+		return PublicLinkResult{}, ErrNotFound
+	}
+	if item.Type == domain.ItemTypeText {
+		return PublicLinkResult{}, fmt.Errorf("%w: text items cannot be shared as files", ErrUnsupportedShare)
+	}
+
+	var expiresAt *time.Time
+	if expiresIn != nil {
+		if *expiresIn <= 0 {
+			return PublicLinkResult{}, fmt.Errorf("%w: expiry must be positive", ErrInvalidInput)
+		}
+		if *expiresIn > maxPublicLinkExpiry {
+			return PublicLinkResult{}, fmt.Errorf("%w: expiry is too large", ErrInvalidInput)
+		}
+		value := uc.now().UTC().Add(*expiresIn)
+		expiresAt = &value
+	}
+
+	token, err := generatePublicLinkToken()
+	if err != nil {
+		return PublicLinkResult{}, fmt.Errorf("generate public link token: %w", err)
+	}
+
+	link, err := uc.public.UpsertForItem(ctx, &domain.PublicLink{
+		Token:     token,
+		ItemID:    item.ID,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return PublicLinkResult{}, fmt.Errorf("save public link: %w", err)
+	}
+
+	return publicLinkResult(link), nil
+}
+
+func (uc *ItemUseCase) RevokePublicLink(ctx context.Context, itemID int64) error {
+	if itemID <= 0 {
+		return fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
+	}
+	if uc.public == nil {
+		return fmt.Errorf("public link repository is not configured")
+	}
+
+	if err := uc.public.DeleteForItem(ctx, itemID); err != nil {
+		return fmt.Errorf("delete public link: %w", err)
+	}
+	return nil
+}
+
+func (uc *ItemUseCase) PublicShareView(ctx context.Context, token string) (PublicShareView, error) {
+	link, item, err := uc.resolvePublicShare(ctx, token)
+	if err != nil {
+		return PublicShareView{}, err
+	}
+	if !isBrowserViewablePublicItem(item) {
+		return PublicShareView{}, fmt.Errorf("%w: public share is not browser-viewable", ErrUnsupportedShare)
+	}
+
+	_, displayMIME := publicDisplayContent(item)
+	view := PublicShareView{
+		Token:       link.Token,
+		Item:        item,
+		SourceURL:   "/share/" + link.Token + "/file",
+		DownloadURL: "/share/" + link.Token + "/download",
+		DisplayMIME: displayMIME,
+		ExpiresAt:   link.ExpiresAt,
+	}
+	if item.Metadata.Thumb != "" {
+		view.PosterURL = "/share/" + link.Token + "/thumb"
+	}
+	return view, nil
+}
+
+func (uc *ItemUseCase) PublicSharedFile(ctx context.Context, token string, variant string) (PublicSharedFile, error) {
+	_, item, err := uc.resolvePublicShare(ctx, token)
+	if err != nil {
+		return PublicSharedFile{}, err
+	}
+
+	relPath := item.Content
+	mimeType := item.Metadata.MIME
+	inline := false
+
+	switch variant {
+	case "display":
+		if !isBrowserViewablePublicItem(item) {
+			return PublicSharedFile{}, fmt.Errorf("%w: public share is not browser-viewable", ErrUnsupportedShare)
+		}
+		relPath, mimeType = publicDisplayContent(item)
+		inline = true
+	case "download":
+		relPath = item.Content
+		mimeType = item.Metadata.MIME
+	case "thumb":
+		if item.Metadata.Thumb == "" {
+			return PublicSharedFile{}, ErrNotFound
+		}
+		relPath = item.Metadata.Thumb
+		mimeType = "image/jpeg"
+		inline = true
+	default:
+		return PublicSharedFile{}, fmt.Errorf("%w: invalid public share file variant", ErrInvalidInput)
+	}
+
+	path, err := uc.storage.Path(relPath)
+	if err != nil {
+		return PublicSharedFile{}, ErrForbidden
+	}
+
+	return PublicSharedFile{
+		Path:     path,
+		RelPath:  relPath,
+		Filename: item.Filename,
+		MIME:     mimeType,
+		Inline:   inline,
+	}, nil
+}
+
+func (uc *ItemUseCase) resolvePublicShare(ctx context.Context, token string) (*domain.PublicLink, *domain.Item, error) {
+	if uc.public == nil {
+		return nil, nil, fmt.Errorf("public link repository is not configured")
+	}
+	if !validPublicLinkToken(token) {
+		return nil, nil, ErrNotFound
+	}
+
+	link, err := uc.public.GetByToken(ctx, token)
+	if err != nil {
+		return nil, nil, ErrNotFound
+	}
+
+	if link.ExpiresAt != nil && !uc.now().UTC().Before(link.ExpiresAt.UTC()) {
+		if deleteErr := uc.public.DeleteByToken(ctx, token); deleteErr != nil {
+			uc.log.Warn("delete expired public link failed", "err", deleteErr)
+		}
+		return nil, nil, ErrNotFound
+	}
+
+	item, err := uc.items.GetByID(ctx, link.ItemID)
+	if err != nil {
+		return nil, nil, ErrNotFound
+	}
+	if item.Type == domain.ItemTypeText {
+		return nil, nil, ErrNotFound
+	}
+
+	return link, item, nil
+}
+
+func publicLinkResult(link *domain.PublicLink) PublicLinkResult {
+	if link == nil {
+		return PublicLinkResult{}
+	}
+	return PublicLinkResult{
+		Token:     link.Token,
+		URL:       "/share/" + link.Token,
+		ExpiresAt: link.ExpiresAt,
+	}
+}
+
+func generatePublicLinkToken() (string, error) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(raw[:]), nil
+}
+
+func validPublicLinkToken(token string) bool {
+	if len(token) < 32 || len(token) > 128 {
+		return false
+	}
+	for _, r := range token {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			continue
+		}
+		if r >= '0' && r <= '9' {
+			continue
+		}
+		if r == '-' || r == '_' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func isBrowserViewablePublicItem(item *domain.Item) bool {
+	if item == nil {
+		return false
+	}
+	return item.Type == domain.ItemTypeImage || item.Type == domain.ItemTypeVideo
+}
+
+func publicDisplayContent(item *domain.Item) (string, string) {
+	if item == nil {
+		return "", ""
+	}
+	if item.Type == domain.ItemTypeVideo && item.Metadata.Playback != "" {
+		if item.Metadata.PlaybackMIME != "" {
+			return item.Metadata.Playback, item.Metadata.PlaybackMIME
+		}
+		return item.Metadata.Playback, "video/mp4"
+	}
+	return item.Content, item.Metadata.MIME
 }
 
 func (uc *ItemUseCase) indexUploadedFile(itemID int64, item *domain.Item) {
