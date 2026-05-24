@@ -368,7 +368,10 @@
 
           handleDrop(e) {
             this.dragover = false;
-            this.enqueueFiles(e.dataTransfer.files);
+            const dataTransfer = e.dataTransfer;
+            if (!dataTransfer || this.dropIncludesDirectory(dataTransfer)) return;
+
+            this.enqueueFiles(dataTransfer.files);
           },
 
           handleFileSelect(e) {
@@ -403,6 +406,23 @@
 
             this.uploadQueueCollapsed = false;
             this.processUploadQueue();
+          },
+
+          dropIncludesDirectory(dataTransfer) {
+            return Array.from(dataTransfer.items || []).some((item) =>
+              this.isDirectoryDropItem(item),
+            );
+          },
+
+          isDirectoryDropItem(item) {
+            if (item.kind !== "file") return false;
+
+            // Detect folders before DataTransfer.files exposes them as failed uploads.
+            const getAsEntry = item.webkitGetAsEntry || item.getAsEntry;
+            if (typeof getAsEntry !== "function") return false;
+
+            const entry = getAsEntry.call(item);
+            return entry?.isDirectory === true;
           },
 
           processUploadQueue() {
