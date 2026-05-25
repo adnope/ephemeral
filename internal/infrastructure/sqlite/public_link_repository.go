@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -41,6 +42,16 @@ func (r *publicLinkRepository) GetByToken(ctx context.Context, token string) (*d
 	return scanPublicLink(row)
 }
 
+func (r *publicLinkRepository) GetForItem(ctx context.Context, itemID int64) (*domain.PublicLink, error) {
+	const query = `
+		SELECT token, item_id, expires_at, created_at, updated_at
+		FROM public_links
+		WHERE item_id = ?`
+
+	row := r.db.QueryRowContext(ctx, query, itemID)
+	return scanPublicLink(row)
+}
+
 func (r *publicLinkRepository) DeleteForItem(ctx context.Context, itemID int64) error {
 	const query = `DELETE FROM public_links WHERE item_id = ?`
 
@@ -74,6 +85,9 @@ func scanPublicLink(scanner publicLinkScanner) (*domain.PublicLink, error) {
 		&link.CreatedAt,
 		&link.UpdatedAt,
 	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrPublicLinkNotFound
+		}
 		return nil, fmt.Errorf("sqlite public link scan: %w", err)
 	}
 

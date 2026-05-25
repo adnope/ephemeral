@@ -466,11 +466,76 @@ Generated HLS files use these response content types:
 
 ---
 
+### `GET /api/items/{id}/public-link`
+
+Returns the current public-link state for one uploaded item.
+
+Text items cannot be shared as public file links.
+
+**Auth**
+
+Requires `session_token`.
+
+**Response**
+
+No link:
+
+```json
+{
+  "status": "none",
+  "expires_at": null
+}
+```
+
+Active link:
+
+```json
+{
+  "status": "active",
+  "url": "/share/7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "token": "7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "expires_at": "2026-06-01T08:00:00Z"
+}
+```
+
+Expired link:
+
+```json
+{
+  "status": "expired",
+  "url": "/share/7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "token": "7_D5s5pJrBNppqJ0mAwbXlLh8r53gzWmBB2Z45TcaZU",
+  "expires_at": "2026-05-25T08:00:00Z"
+}
+```
+
+Expired links remain stored until the owner revokes the link or creates a new link for the same item.
+
+**Status codes**
+
+|  Code | Meaning                                     |
+| ----: | ------------------------------------------- |
+| `200` | Link state returned                         |
+| `400` | Invalid item ID                             |
+| `404` | Item not found                              |
+| `415` | Item cannot be shared as a public file link |
+| `500` | Link lookup failed                          |
+
+---
+
 ### `POST /api/items/{id}/public-link`
 
 Creates or replaces the public link for one uploaded item.
 
 Text items cannot be shared as public file links. Uploaded images and videos open in a browser-view page. Generic files download when the public link is opened.
+
+Each uploaded item has at most one public link:
+
+- no existing link: creates a new token
+- active existing link: updates `expires_at` and keeps the same token/URL
+- expired existing link: deletes the expired row and creates a new token
+
+The web dialog defaults new links to 24 hours. API clients may still send `null` to create a non-expiring link.
 
 **Auth**
 
@@ -527,7 +592,7 @@ For non-expiring links, `expires_at` is `null`.
 
 ### `DELETE /api/items/{id}/public-link`
 
-Revokes the public link for one item. The operation is idempotent when the item has no active link.
+Revokes the public link for one item. The operation is idempotent when the item has no stored link.
 
 **Auth**
 
@@ -551,7 +616,7 @@ Public route. Does not require `session_token`.
 
 - Returns `404` for missing, malformed, expired, revoked, or deleted-item links.
 - Image and video links render an HTML page with browser media controls.
-- Video pages use the generated browser-friendly MP4 playback copy when available, then fall back to the original upload.
+- Processing video pages show a processing state. Completed video pages use the generated browser-friendly MP4 playback copy when available, then fall back to the original upload.
 - Generic file links return the original file with `Content-Disposition: attachment`.
 - Public file responses set `Cache-Control: private, no-store`.
 

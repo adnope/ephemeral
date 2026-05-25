@@ -202,28 +202,19 @@
 
     <input type="hidden" id="publicShareItemID" />
 
-    <label class="public-share-field">
-      <span>Expires</span>
-      <select id="publicShareExpiry">
-        <option value="">Never</option>
-        <option value="3600">1 hour</option>
-        <option value="86400">24 hours</option>
-        <option value="604800">7 days</option>
-        <option value="2592000">30 days</option>
-      </select>
-    </label>
+    <div id="publicShareLoading" class="public-share-status" hidden>
+      Loading...
+    </div>
 
-    <button
-      type="submit"
-      id="publicShareCreate"
-      class="btn public-share-primary"
-    >
-      Create link
-    </button>
+    <div id="publicShareLinkDetails" class="public-share-result" hidden>
+      <label class="public-share-field">
+        <span>Link</span>
+        <input id="publicShareURL" type="text" readonly />
+      </label>
 
-    <div id="publicShareResult" class="public-share-result" hidden>
-      <input id="publicShareURL" type="text" readonly />
-      <div class="public-share-result-actions">
+      <div id="publicShareExpiryText" class="public-share-state-text"></div>
+
+      <div id="publicShareResultActions" class="public-share-result-actions">
         <button type="button" class="btn" onclick="copyPublicShareLink()">
           Copy
         </button>
@@ -246,11 +237,35 @@
       </div>
     </div>
 
+    <label id="publicShareExpiryField" class="public-share-field">
+      <span id="publicShareExpiryLabel">Expires</span>
+      <select id="publicShareExpiry">
+        <option value="3600">1 hour</option>
+        <option value="86400" selected>24 hours</option>
+        <option value="604800">7 days</option>
+        <option value="2592000">30 days</option>
+        <option value="">Never</option>
+      </select>
+    </label>
+
+    <button
+      type="submit"
+      id="publicShareCreate"
+      class="btn public-share-primary"
+    >
+      Create link
+    </button>
+
     <div id="publicShareStatus" class="public-share-status" role="status"></div>
   </form>
 </dialog>
 {{end}} {{define "public_share_scripts"}}
 <script>
+  const publicShareState = {
+    itemID: 0,
+    status: "none",
+  };
+
   window.openPublicShareDialog = function (trigger) {
     if (!(trigger instanceof HTMLElement)) return;
 
@@ -264,17 +279,15 @@
     const dialog = document.getElementById("publicShareDialog");
     if (!(dialog instanceof HTMLDialogElement)) return;
 
+    rememberPublicShareTriggerLabel(trigger);
+    resetPublicShareDialog();
     document.getElementById("publicShareItemID").value = String(itemID);
     document.getElementById("publicShareFilename").textContent =
       trigger.dataset.shareFilename || "";
-    document.getElementById("publicShareExpiry").value = "";
-    document.getElementById("publicShareURL").value = "";
-    document.getElementById("publicShareOpen").removeAttribute("href");
-    document.getElementById("publicShareResult").hidden = true;
-    document.getElementById("publicShareStatus").textContent = "";
-    document.getElementById("publicShareCreate").disabled = false;
+    publicShareState.itemID = itemID;
 
     if (!dialog.open) dialog.showModal();
+    loadPublicShareLink(itemID);
   };
 
   window.closePublicShareDialog = function () {
@@ -293,14 +306,19 @@
 
     const createButton = document.getElementById("publicShareCreate");
     const status = document.getElementById("publicShareStatus");
-    const expiry = document.getElementById("publicShareExpiry").value;
+    const expiry =
+      publicShareState.status === "expired"
+        ? "86400"
+        : document.getElementById("publicShareExpiry").value;
 
     const body = {
       expires_in_seconds: expiry === "" ? null : Number.parseInt(expiry, 10),
     };
 
     createButton.disabled = true;
-    status.textContent = "Creating...";
+    status.textContent =
+      publicShareState.status === "active" ? "Updating..." : "Creating...";
+    const previousStatus = publicShareState.status;
 
     try {
       const response = await fetch(
@@ -322,10 +340,15 @@
       const link = await response.json();
       const absoluteURL = new URL(link.url, window.location.origin).href;
 
-      document.getElementById("publicShareURL").value = absoluteURL;
-      document.getElementById("publicShareOpen").href = absoluteURL;
-      document.getElementById("publicShareResult").hidden = false;
-      status.textContent = "Link ready";
+      renderPublicShareState({
+        status: "active",
+        url: absoluteURL,
+        token: link.token,
+        expires_at: link.expires_at,
+      });
+      setPublicShareTriggerLabel(itemID, "active");
+      status.textContent =
+        previousStatus === "active" ? "Link updated" : "Link ready";
     } catch (error) {
       console.error(error);
       status.textContent = "Could not create link.";
@@ -368,11 +391,140 @@
       return;
     }
 
-    document.getElementById("publicShareURL").value = "";
-    document.getElementById("publicShareOpen").removeAttribute("href");
-    document.getElementById("publicShareResult").hidden = true;
+    renderPublicShareState({ status: "none" });
+    setPublicShareTriggerLabel(itemID, "none");
     status.textContent = "Link revoked";
   };
+
+  async function loadPublicShareLink(itemID) {
+    const loading = document.getElementById("publicShareLoading");
+    const createButton = document.getElementById("publicShareCreate");
+    const status = document.getElementById("publicShareStatus");
+
+    loading.hidden = false;
+    createButton.disabled = true;
+
+    try {
+      const response = await fetch(
+        `/api/items/${encodeURIComponent(itemID)}/public-link`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new Error(`public link status failed: HTTP ${response.status}`);
+      }
+
+      const link = await response.json();
+      renderPublicShareState(link);
+      setPublicShareTriggerLabel(itemID, link.status);
+    } catch (error) {
+      console.error(error);
+      status.textContent = "Could not load link.";
+      document.getElementById("publicShareExpiryField").hidden = true;
+      createButton.hidden = true;
+    } finally {
+      loading.hidden = true;
+      createButton.disabled = false;
+    }
+  }
+
+  function resetPublicShareDialog() {
+    publicShareState.itemID = 0;
+    publicShareState.status = "none";
+    document.getElementById("publicShareExpiry").value = "86400";
+    document.getElementById("publicShareURL").value = "";
+    document.getElementById("publicShareOpen").removeAttribute("href");
+    document.getElementById("publicShareLinkDetails").hidden = true;
+    document.getElementById("publicShareResultActions").hidden = false;
+    document.getElementById("publicShareExpiryField").hidden = false;
+    document.getElementById("publicShareExpiryLabel").textContent = "Expires";
+    document.getElementById("publicShareExpiryText").textContent = "";
+    document.getElementById("publicShareCreate").hidden = false;
+    document.getElementById("publicShareCreate").textContent = "Create link";
+    document.getElementById("publicShareStatus").textContent = "";
+    document.getElementById("publicShareLoading").hidden = true;
+  }
+
+  function renderPublicShareState(link) {
+    const state = link?.status || "none";
+    publicShareState.status = state;
+
+    const details = document.getElementById("publicShareLinkDetails");
+    const actions = document.getElementById("publicShareResultActions");
+    const expiryField = document.getElementById("publicShareExpiryField");
+    const expiryLabel = document.getElementById("publicShareExpiryLabel");
+    const createButton = document.getElementById("publicShareCreate");
+    const expiryText = document.getElementById("publicShareExpiryText");
+    const urlInput = document.getElementById("publicShareURL");
+    const openLink = document.getElementById("publicShareOpen");
+
+    const absoluteURL = link?.url
+      ? new URL(link.url, window.location.origin).href
+      : "";
+    urlInput.value = absoluteURL;
+
+    if (absoluteURL) {
+      openLink.href = absoluteURL;
+    } else {
+      openLink.removeAttribute("href");
+    }
+
+    details.hidden = state === "none";
+    actions.hidden = state !== "active";
+    expiryField.hidden = state === "expired";
+    createButton.hidden = false;
+
+    if (state === "active") {
+      expiryLabel.textContent = "Update expiry";
+      createButton.textContent = "Update expiry";
+      expiryText.textContent = link.expires_at
+        ? `Expires ${formatPublicShareDate(link.expires_at)}`
+        : "Does not expire";
+      return;
+    }
+
+    if (state === "expired") {
+      document.getElementById("publicShareExpiry").value = "86400";
+      createButton.textContent = "Create new link";
+      expiryText.textContent = link.expires_at
+        ? `Expired ${formatPublicShareDate(link.expires_at)}`
+        : "Expired";
+      return;
+    }
+
+    document.getElementById("publicShareExpiry").value = "86400";
+    expiryLabel.textContent = "Expires";
+    createButton.textContent = "Create link";
+    expiryText.textContent = "";
+  }
+
+  function formatPublicShareDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+
+  function rememberPublicShareTriggerLabel(trigger) {
+    if (!trigger.dataset.shareLabelDefault) {
+      trigger.dataset.shareLabelDefault =
+        trigger.textContent.trim() || "Share link";
+    }
+  }
+
+  function setPublicShareTriggerLabel(itemID, state) {
+    document.querySelectorAll("[data-share-id]").forEach((trigger) => {
+      if (!(trigger instanceof HTMLElement)) return;
+      if (trigger.dataset.shareId !== String(itemID)) return;
+
+      rememberPublicShareTriggerLabel(trigger);
+      trigger.textContent =
+        state === "active" || state === "expired"
+          ? "Manage link"
+          : trigger.dataset.shareLabelDefault || "Share link";
+    });
+  }
 </script>
 {{end}} {{define "text_viewer_scripts"}}
 <script type="module">

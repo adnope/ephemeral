@@ -1813,6 +1813,10 @@ dialog.public-share-dialog[open] {
   gap: 8px;
 }
 
+.public-share-state-text {
+  color: var(--color-text-muted);
+}
+
 .public-share-revoke {
   border: 1px solid var(--color-danger-border);
   background: var(--color-danger-bg);

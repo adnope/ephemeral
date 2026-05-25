@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -47,6 +48,21 @@ type FilePreview struct {
 }
 
 type PublicLinkResult struct {
+	Token     string
+	URL       string
+	ExpiresAt *time.Time
+}
+
+type PublicLinkState string
+
+const (
+	PublicLinkStateNone    PublicLinkState = "none"
+	PublicLinkStateActive  PublicLinkState = "active"
+	PublicLinkStateExpired PublicLinkState = "expired"
+)
+
+type PublicLinkStatus struct {
+	State     PublicLinkState
 	Token     string
 	URL       string
 	ExpiresAt *time.Time
@@ -322,21 +338,14 @@ func (uc *ItemUseCase) CreatePublicLink(ctx context.Context, itemID int64, expir
 		return PublicLinkResult{}, fmt.Errorf("%w: text items cannot be shared as files", ErrUnsupportedShare)
 	}
 
-	var expiresAt *time.Time
-	if expiresIn != nil {
-		if *expiresIn <= 0 {
-			return PublicLinkResult{}, fmt.Errorf("%w: expiry must be positive", ErrInvalidInput)
-		}
-		if *expiresIn > maxPublicLinkExpiry {
-			return PublicLinkResult{}, fmt.Errorf("%w: expiry is too large", ErrInvalidInput)
-		}
-		value := uc.now().UTC().Add(*expiresIn)
-		expiresAt = &value
+	expiresAt, err := uc.publicLinkExpiresAt(expiresIn)
+	if err != nil {
+		return PublicLinkResult{}, err
 	}
 
-	token, err := generatePublicLinkToken()
+	token, err := uc.publicLinkTokenForUpsert(ctx, item.ID)
 	if err != nil {
-		return PublicLinkResult{}, fmt.Errorf("generate public link token: %w", err)
+		return PublicLinkResult{}, err
 	}
 
 	link, err := uc.public.UpsertForItem(ctx, &domain.PublicLink{
@@ -349,6 +358,43 @@ func (uc *ItemUseCase) CreatePublicLink(ctx context.Context, itemID int64, expir
 	}
 
 	return publicLinkResult(link), nil
+}
+
+func (uc *ItemUseCase) PublicLinkStatus(ctx context.Context, itemID int64) (PublicLinkStatus, error) {
+	if itemID <= 0 {
+		return PublicLinkStatus{}, fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
+	}
+	if uc.public == nil {
+		return PublicLinkStatus{}, fmt.Errorf("public link repository is not configured")
+	}
+
+	item, err := uc.items.GetByID(ctx, itemID)
+	if err != nil {
+		return PublicLinkStatus{}, ErrNotFound
+	}
+	if item.Type == domain.ItemTypeText {
+		return PublicLinkStatus{}, fmt.Errorf("%w: text items cannot be shared as files", ErrUnsupportedShare)
+	}
+
+	link, err := uc.public.GetForItem(ctx, itemID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPublicLinkNotFound) {
+			return PublicLinkStatus{State: PublicLinkStateNone}, nil
+		}
+		return PublicLinkStatus{}, fmt.Errorf("get public link for item: %w", err)
+	}
+
+	state := PublicLinkStateActive
+	if publicLinkExpired(link, uc.now()) {
+		state = PublicLinkStateExpired
+	}
+
+	return PublicLinkStatus{
+		State:     state,
+		Token:     link.Token,
+		URL:       "/share/" + link.Token,
+		ExpiresAt: link.ExpiresAt,
+	}, nil
 }
 
 func (uc *ItemUseCase) RevokePublicLink(ctx context.Context, itemID int64) error {
@@ -447,10 +493,7 @@ func (uc *ItemUseCase) resolvePublicShare(ctx context.Context, token string) (*d
 		return nil, nil, ErrNotFound
 	}
 
-	if link.ExpiresAt != nil && !uc.now().UTC().Before(link.ExpiresAt.UTC()) {
-		if deleteErr := uc.public.DeleteByToken(ctx, token); deleteErr != nil {
-			uc.log.Warn("delete expired public link failed", "err", deleteErr)
-		}
+	if publicLinkExpired(link, uc.now()) {
 		return nil, nil, ErrNotFound
 	}
 
@@ -463,6 +506,45 @@ func (uc *ItemUseCase) resolvePublicShare(ctx context.Context, token string) (*d
 	}
 
 	return link, item, nil
+}
+
+func (uc *ItemUseCase) publicLinkExpiresAt(expiresIn *time.Duration) (*time.Time, error) {
+	if expiresIn == nil {
+		return nil, nil
+	}
+	if *expiresIn <= 0 {
+		return nil, fmt.Errorf("%w: expiry must be positive", ErrInvalidInput)
+	}
+	if *expiresIn > maxPublicLinkExpiry {
+		return nil, fmt.Errorf("%w: expiry is too large", ErrInvalidInput)
+	}
+
+	value := uc.now().UTC().Add(*expiresIn)
+	return &value, nil
+}
+
+func (uc *ItemUseCase) publicLinkTokenForUpsert(ctx context.Context, itemID int64) (string, error) {
+	existing, err := uc.public.GetForItem(ctx, itemID)
+	if err == nil {
+		if !publicLinkExpired(existing, uc.now()) {
+			return existing.Token, nil
+		}
+		if err := uc.public.DeleteForItem(ctx, itemID); err != nil {
+			return "", fmt.Errorf("delete expired public link before replacement: %w", err)
+		}
+	} else if !errors.Is(err, domain.ErrPublicLinkNotFound) {
+		return "", fmt.Errorf("get public link for replacement: %w", err)
+	}
+
+	token, err := generatePublicLinkToken()
+	if err != nil {
+		return "", fmt.Errorf("generate public link token: %w", err)
+	}
+	return token, nil
+}
+
+func publicLinkExpired(link *domain.PublicLink, now time.Time) bool {
+	return link != nil && link.ExpiresAt != nil && !now.UTC().Before(link.ExpiresAt.UTC())
 }
 
 func publicLinkResult(link *domain.PublicLink) PublicLinkResult {

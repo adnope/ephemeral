@@ -148,6 +148,7 @@ func main() {
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)
 	r.Delete("/api/items/{id}", h.DeleteItem)
+	r.Get("/api/items/{id}/public-link", h.PublicLinkStatus)
 	r.Post("/api/items/{id}/public-link", h.CreatePublicLink)
 	r.Delete("/api/items/{id}/public-link", h.RevokePublicLink)
 	r.Get("/api/files/*", h.ServeFile)

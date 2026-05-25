@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"io/fs"
 	"sort"
 	"strings"
@@ -46,6 +47,13 @@ func TestPublicLinkRepositoryUpsertAndCascadeDelete(t *testing.T) {
 	if first.Token != "first-token" || first.ExpiresAt == nil {
 		t.Fatalf("first link = %#v", first)
 	}
+	firstForItem, err := links.GetForItem(ctx, itemID)
+	if err != nil {
+		t.Fatalf("get first link for item: %v", err)
+	}
+	if firstForItem.Token != "first-token" {
+		t.Fatalf("first item token = %q, want first-token", firstForItem.Token)
+	}
 
 	second, err := links.UpsertForItem(ctx, &domain.PublicLink{
 		Token:  "second-token",
@@ -63,12 +71,19 @@ func TestPublicLinkRepositoryUpsertAndCascadeDelete(t *testing.T) {
 	if _, err := links.GetByToken(ctx, "second-token"); err != nil {
 		t.Fatalf("new token does not resolve: %v", err)
 	}
+	secondForItem, err := links.GetForItem(ctx, itemID)
+	if err != nil {
+		t.Fatalf("get second link for item: %v", err)
+	}
+	if secondForItem.Token != "second-token" {
+		t.Fatalf("second item token = %q, want second-token", secondForItem.Token)
+	}
 
 	if err := items.Delete(ctx, itemID); err != nil {
 		t.Fatalf("delete item: %v", err)
 	}
-	if _, err := links.GetByToken(ctx, "second-token"); err == nil {
-		t.Fatal("public link survived item delete")
+	if _, err := links.GetByToken(ctx, "second-token"); !errors.Is(err, domain.ErrPublicLinkNotFound) {
+		t.Fatalf("public link survived item delete: %v", err)
 	}
 }
 

@@ -23,6 +23,9 @@ func TestSetPublicShareFileHeadersUsesAttachmentForDownloads(t *testing.T) {
 	if got := res.Header().Get("Content-Disposition"); !strings.HasPrefix(got, "attachment;") {
 		t.Fatalf("Content-Disposition = %q, want attachment", got)
 	}
+	if got := res.Header().Get("Cache-Control"); got != "private, no-store" {
+		t.Fatalf("Cache-Control = %q, want private, no-store", got)
+	}
 }
 
 func TestSetPublicShareFileHeadersSandboxesInlineActiveDocuments(t *testing.T) {

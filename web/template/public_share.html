@@ -28,6 +28,11 @@
         <div class="public-share-media">
           {{if eq .ItemType "image"}}
           <img src="{{.SourceURL}}" alt="{{.Filename}}" />
+          {{else if and (eq .ItemType "video") .Processing}}
+          <div class="media-processing-panel">
+            <span class="auto-load-spinner"></span>
+            <span>video is being processed...</span>
+          </div>
           {{else if eq .ItemType "video"}}
           <video
             controls

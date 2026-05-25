@@ -51,17 +51,85 @@ func TestCreatePublicLinkCreatesNonExpiringFileLink(t *testing.T) {
 	}
 }
 
-func TestPublicShareViewExpiresLinks(t *testing.T) {
+func TestCreatePublicLinkUpdatesActiveLinkWithoutChangingToken(t *testing.T) {
 	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
 	repo := newFakePublicLinkRepo()
 	repo.byToken[testPublicToken] = &domain.PublicLink{
 		Token:     testPublicToken,
 		ItemID:    3,
-		ExpiresAt: ptrTime(now.Add(time.Second)),
+		ExpiresAt: ptrTime(now.Add(time.Hour)),
 	}
+	repo.byItem[3] = testPublicToken
 	uc := newPublicLinkTestUseCaseWithRepo(map[int64]*domain.Item{
 		3: {
 			ID:       3,
+			Type:     domain.ItemTypeFile,
+			Content:  "sample.txt",
+			Filename: "sample.txt",
+			Metadata: domain.Metadata{MIME: "text/plain"},
+		},
+	}, repo)
+	uc.now = func() time.Time { return now }
+
+	expiresIn := 24 * time.Hour
+	link, err := uc.CreatePublicLink(context.Background(), 3, &expiresIn)
+	if err != nil {
+		t.Fatalf("CreatePublicLink(): %v", err)
+	}
+
+	if link.Token != testPublicToken {
+		t.Fatalf("Token = %q, want existing token %q", link.Token, testPublicToken)
+	}
+	if link.ExpiresAt == nil || !link.ExpiresAt.Equal(now.Add(expiresIn)) {
+		t.Fatalf("ExpiresAt = %v, want %v", link.ExpiresAt, now.Add(expiresIn))
+	}
+}
+
+func TestCreatePublicLinkReplacesExpiredLinkWithNewToken(t *testing.T) {
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	repo := newFakePublicLinkRepo()
+	repo.byToken[testPublicToken] = &domain.PublicLink{
+		Token:     testPublicToken,
+		ItemID:    4,
+		ExpiresAt: ptrTime(now.Add(-time.Second)),
+	}
+	repo.byItem[4] = testPublicToken
+	uc := newPublicLinkTestUseCaseWithRepo(map[int64]*domain.Item{
+		4: {
+			ID:       4,
+			Type:     domain.ItemTypeFile,
+			Content:  "sample.txt",
+			Filename: "sample.txt",
+			Metadata: domain.Metadata{MIME: "text/plain"},
+		},
+	}, repo)
+	uc.now = func() time.Time { return now }
+
+	link, err := uc.CreatePublicLink(context.Background(), 4, nil)
+	if err != nil {
+		t.Fatalf("CreatePublicLink(): %v", err)
+	}
+
+	if link.Token == "" || link.Token == testPublicToken {
+		t.Fatalf("Token = %q, want a new token", link.Token)
+	}
+	if _, err := repo.GetByToken(context.Background(), testPublicToken); !errors.Is(err, domain.ErrPublicLinkNotFound) {
+		t.Fatalf("old token error = %v, want ErrPublicLinkNotFound", err)
+	}
+}
+
+func TestPublicShareViewExpiresLinksWithoutDeletingThem(t *testing.T) {
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	repo := newFakePublicLinkRepo()
+	repo.byToken[testPublicToken] = &domain.PublicLink{
+		Token:     testPublicToken,
+		ItemID:    5,
+		ExpiresAt: ptrTime(now.Add(time.Second)),
+	}
+	repo.byItem[5] = testPublicToken
+	uc := newPublicLinkTestUseCaseWithRepo(map[int64]*domain.Item{
+		5: {
+			ID:       5,
 			Type:     domain.ItemTypeImage,
 			Content:  "photo.jpg",
 			Filename: "photo.jpg",
@@ -74,8 +142,73 @@ func TestPublicShareViewExpiresLinks(t *testing.T) {
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("PublicShareView error = %v, want ErrNotFound", err)
 	}
-	if _, err := repo.GetByToken(context.Background(), testPublicToken); err == nil {
-		t.Fatal("expired public link was not deleted")
+	if _, err := repo.GetByToken(context.Background(), testPublicToken); err != nil {
+		t.Fatalf("expired public link was deleted: %v", err)
+	}
+}
+
+func TestPublicLinkStatusClassifiesLinkState(t *testing.T) {
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	repo := newFakePublicLinkRepo()
+	repo.byToken["active-token"] = &domain.PublicLink{
+		Token:     "active-token",
+		ItemID:    6,
+		ExpiresAt: ptrTime(now.Add(time.Hour)),
+	}
+	repo.byItem[6] = "active-token"
+	repo.byToken["expired-token"] = &domain.PublicLink{
+		Token:     "expired-token",
+		ItemID:    7,
+		ExpiresAt: ptrTime(now.Add(-time.Second)),
+	}
+	repo.byItem[7] = "expired-token"
+	uc := newPublicLinkTestUseCaseWithRepo(map[int64]*domain.Item{
+		6: {
+			ID:       6,
+			Type:     domain.ItemTypeImage,
+			Content:  "active.jpg",
+			Filename: "active.jpg",
+			Metadata: domain.Metadata{MIME: "image/jpeg"},
+		},
+		7: {
+			ID:       7,
+			Type:     domain.ItemTypeImage,
+			Content:  "expired.jpg",
+			Filename: "expired.jpg",
+			Metadata: domain.Metadata{MIME: "image/jpeg"},
+		},
+		8: {
+			ID:       8,
+			Type:     domain.ItemTypeFile,
+			Content:  "none.txt",
+			Filename: "none.txt",
+			Metadata: domain.Metadata{MIME: "text/plain"},
+		},
+	}, repo)
+	uc.now = func() time.Time { return now }
+
+	active, err := uc.PublicLinkStatus(context.Background(), 6)
+	if err != nil {
+		t.Fatalf("PublicLinkStatus(active): %v", err)
+	}
+	if active.State != PublicLinkStateActive || active.Token != "active-token" {
+		t.Fatalf("active status = %#v", active)
+	}
+
+	expired, err := uc.PublicLinkStatus(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("PublicLinkStatus(expired): %v", err)
+	}
+	if expired.State != PublicLinkStateExpired || expired.Token != "expired-token" {
+		t.Fatalf("expired status = %#v", expired)
+	}
+
+	none, err := uc.PublicLinkStatus(context.Background(), 8)
+	if err != nil {
+		t.Fatalf("PublicLinkStatus(none): %v", err)
+	}
+	if none.State != PublicLinkStateNone {
+		t.Fatalf("none status = %#v", none)
 	}
 }
 
@@ -207,9 +340,17 @@ func (r *fakePublicLinkRepo) UpsertForItem(_ context.Context, link *domain.Publi
 func (r *fakePublicLinkRepo) GetByToken(_ context.Context, token string) (*domain.PublicLink, error) {
 	link, ok := r.byToken[token]
 	if !ok {
-		return nil, errors.New("not found")
+		return nil, domain.ErrPublicLinkNotFound
 	}
 	return clonePublicLink(link), nil
+}
+
+func (r *fakePublicLinkRepo) GetForItem(_ context.Context, itemID int64) (*domain.PublicLink, error) {
+	token := r.byItem[itemID]
+	if token == "" {
+		return nil, domain.ErrPublicLinkNotFound
+	}
+	return r.GetByToken(context.Background(), token)
 }
 
 func (r *fakePublicLinkRepo) DeleteForItem(_ context.Context, itemID int64) error {

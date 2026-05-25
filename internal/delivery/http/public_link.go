@@ -21,6 +21,13 @@ type publicLinkResponse struct {
 	ExpiresAt *time.Time `json:"expires_at"`
 }
 
+type publicLinkStatusResponse struct {
+	Status    string     `json:"status"`
+	URL       string     `json:"url,omitempty"`
+	Token     string     `json:"token,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at"`
+}
+
 type publicSharePageData struct {
 	Filename    string
 	Filesize    int64
@@ -30,6 +37,28 @@ type publicSharePageData struct {
 	PosterURL   string
 	DownloadURL string
 	ExpiresAt   string
+	Processing  bool
+}
+
+// PublicLinkStatus handles GET /api/items/{id}/public-link.
+func (h *Handler) PublicLinkStatus(w http.ResponseWriter, r *http.Request) {
+	itemID, ok := parseItemIDParam(w, r)
+	if !ok {
+		return
+	}
+
+	status, err := h.items.PublicLinkStatus(r.Context(), itemID)
+	if err != nil {
+		h.writePublicLinkUseCaseError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, publicLinkStatusResponse{
+		Status:    string(status.State),
+		URL:       status.URL,
+		Token:     status.Token,
+		ExpiresAt: status.ExpiresAt,
+	})
 }
 
 // CreatePublicLink handles POST /api/items/{id}/public-link.
@@ -182,6 +211,7 @@ func publicSharePage(view usecase.PublicShareView) publicSharePageData {
 		SourceURL:   view.SourceURL,
 		PosterURL:   view.PosterURL,
 		DownloadURL: view.DownloadURL,
+		Processing:  view.Item.Metadata.Processing,
 	}
 	if view.ExpiresAt != nil {
 		data.ExpiresAt = view.ExpiresAt.UTC().Format("Jan 2, 2006 3:04 PM UTC")

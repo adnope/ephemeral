@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 )
@@ -58,9 +59,12 @@ type PublicLink struct {
 	UpdatedAt time.Time
 }
 
+var ErrPublicLinkNotFound = errors.New("public link not found")
+
 type PublicLinkRepository interface {
 	UpsertForItem(ctx context.Context, link *PublicLink) (*PublicLink, error)
 	GetByToken(ctx context.Context, token string) (*PublicLink, error)
+	GetForItem(ctx context.Context, itemID int64) (*PublicLink, error)
 	DeleteForItem(ctx context.Context, itemID int64) error
 	DeleteByToken(ctx context.Context, token string) error
 }
