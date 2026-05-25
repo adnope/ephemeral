@@ -395,8 +395,8 @@ func (uc *ItemUseCase) PublicSharedFile(ctx context.Context, token string, varia
 		return PublicSharedFile{}, err
 	}
 
-	relPath := item.Content
-	mimeType := item.Metadata.MIME
+	var relPath string
+	var mimeType string
 	inline := false
 
 	switch variant {
