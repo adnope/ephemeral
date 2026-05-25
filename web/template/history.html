@@ -3,7 +3,7 @@
 <html>
   <head>
     <title>Ephemeral - History</title>
-    <link rel="stylesheet" href="/static/app.css" />
+    {{template "stylesheet_bootstrap" .}}
     <script src="/static/app.min.js" defer></script>
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
@@ -44,7 +44,7 @@
 
             <button type="submit" class="history-search-btn">Search</button>
 
-            {{if or .Query .SearchBody .DateFrom .DateTo .Recent}}
+            {{if or .Query .SearchBody .DateFrom .DateTo .Recent .Visibility}}
             <a
               href="/history{{if .TypeFilter}}?type={{queryEscape .TypeFilter}}{{end}}"
               class="history-search-clear"
@@ -94,6 +94,33 @@
                 </option>
               </select>
             </label>
+
+            <label class="history-search-date-field">
+              <span>Visibility</span>
+              <select name="visibility">
+                <option value="" {{if not .Visibility}}selected{{end}}>
+                  All
+                </option>
+                <option
+                  value="private"
+                  {{if
+                  eq
+                  .Visibility
+                  `private`}}selected{{end}}
+                >
+                  Private
+                </option>
+                <option
+                  value="public"
+                  {{if
+                  eq
+                  .Visibility
+                  `public`}}selected{{end}}
+                >
+                  Public
+                </option>
+              </select>
+            </label>
           </div>
 
           <label class="history-search-option">
@@ -110,28 +137,28 @@
 
         <nav class="history-filter-pills" aria-label="History filters">
           <a
-            href="/history?{{if .Query}}q={{queryEscape .Query}}&{{end}}{{if .SearchBody}}body=1&{{end}}{{if .DateFrom}}from={{queryEscape .DateFrom}}&{{end}}{{if .DateTo}}to={{queryEscape .DateTo}}&{{end}}{{if .Recent}}recent={{queryEscape .Recent}}{{end}}"
+            href="/history?{{if .Query}}q={{queryEscape .Query}}&{{end}}{{if .SearchBody}}body=1&{{end}}{{if .DateFrom}}from={{queryEscape .DateFrom}}&{{end}}{{if .DateTo}}to={{queryEscape .DateTo}}&{{end}}{{if .Recent}}recent={{queryEscape .Recent}}&{{end}}{{if .Visibility}}visibility={{queryEscape .Visibility}}{{end}}"
             class="history-filter-pill {{if not .TypeFilter}}is-active{{end}}"
           >
             All
           </a>
 
           <a
-            href="/history?type=image{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
+            href="/history?type=image{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}{{if .Visibility}}&visibility={{queryEscape .Visibility}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "image"}}is-active{{end}}'
           >
             Images
           </a>
 
           <a
-            href="/history?type=video{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
+            href="/history?type=video{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}{{if .Visibility}}&visibility={{queryEscape .Visibility}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "video"}}is-active{{end}}'
           >
             Videos
           </a>
 
           <a
-            href="/history?type=file{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
+            href="/history?type=file{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}{{if .Visibility}}&visibility={{queryEscape .Visibility}}{{end}}"
             class='history-filter-pill {{if eq .TypeFilter "file"}}is-active{{end}}'
           >
             Files
@@ -145,8 +172,8 @@
     </div>
 
     {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
-    {{template "text_viewer_scripts" .}} {{template "public_share_scripts" .}}
-    {{template "media_scripts" .}}
+    {{template "delete_confirm_dialog" .}} {{template "text_viewer_scripts" .}}
+    {{template "public_share_scripts" .}} {{template "media_scripts" .}}
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         if (!window.EventSource || !window.htmx) return;
@@ -310,9 +337,10 @@
         class="file-action-link"
         data-share-id="{{.ID}}"
         data-share-filename="{{.Filename}}"
+        data-share-label-default="Share"
         onclick="openPublicShareDialog(this)"
       >
-        Share
+        {{if .PublicLinkActive}}Manage link{{else}}Share{{end}}
       </button>
 
       <button
@@ -330,7 +358,7 @@
 {{end}} {{if .NextCursor}}
 <div
   class="gallery-auto-load-row"
-  hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{queryEscape .TypeFilter}}{{end}}{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}"
+  hx-get="/history?cursor={{.NextCursor}}{{if .TypeFilter}}&type={{queryEscape .TypeFilter}}{{end}}{{if .Query}}&q={{queryEscape .Query}}{{end}}{{if .SearchBody}}&body=1{{end}}{{if .DateFrom}}&from={{queryEscape .DateFrom}}{{end}}{{if .DateTo}}&to={{queryEscape .DateTo}}{{end}}{{if .Recent}}&recent={{queryEscape .Recent}}{{end}}{{if .Visibility}}&visibility={{queryEscape .Visibility}}{{end}}"
   hx-trigger="intersect once root:.history-main threshold:0.1"
   hx-target="this"
   hx-swap="outerHTML"

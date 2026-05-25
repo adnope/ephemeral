@@ -20,7 +20,7 @@ func (h *Handler) HistoryAPI(w http.ResponseWriter, r *http.Request) {
 	result, err := h.searchHistory(r, cursor)
 	if err != nil {
 		if errors.Is(err, usecase.ErrInvalidInput) {
-			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid date filter")
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid history filter")
 			return
 		}
 		h.log.Error("history api: query", "err", err)
@@ -38,7 +38,7 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 	result, err := h.searchHistory(r, cursor)
 	if err != nil {
 		if errors.Is(err, usecase.ErrInvalidInput) {
-			http.Error(w, "invalid date filter", http.StatusBadRequest)
+			http.Error(w, "invalid history filter", http.StatusBadRequest)
 			return
 		}
 		h.log.Error("history: query", "err", err)
@@ -59,6 +59,7 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		"TypeFilter": strings.Join(result.Types, ","),
 		"Query":      result.Query,
 		"SearchBody": result.SearchBody,
+		"Visibility": result.Visibility,
 		"DateFrom":   result.DateFrom,
 		"DateTo":     result.DateTo,
 		"Recent":     result.Recent,
@@ -88,6 +89,7 @@ func (h *Handler) searchHistory(r *http.Request, cursor int64) (usecase.HistoryR
 		Types:       types,
 		Query:       r.URL.Query().Get("q"),
 		SearchBody:  r.URL.Query().Get("body") == "1",
+		Visibility:  r.URL.Query().Get("visibility"),
 		DateFromRaw: r.URL.Query().Get("from"),
 		DateToRaw:   r.URL.Query().Get("to"),
 		Recent:      r.URL.Query().Get("recent"),

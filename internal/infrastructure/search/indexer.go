@@ -122,6 +122,9 @@ func (x *Indexer) SearchHistory(ctx context.Context, opt domain.HistorySearchOpt
 	if opt.Limit <= 0 {
 		return nil, fmt.Errorf("limit must be positive")
 	}
+	if opt.Now.IsZero() {
+		opt.Now = time.Now()
+	}
 
 	args := make([]any, 0, 16)
 	where := []string{"i.id < ?"}
@@ -146,6 +149,25 @@ func (x *Indexer) SearchHistory(ctx context.Context, opt domain.HistorySearchOpt
 	if opt.HasDateTo {
 		where = append(where, "i.created_at <= ?")
 		args = append(args, opt.DateTo.Format("2006-01-02 15:04:05"))
+	}
+
+	switch opt.Visibility {
+	case domain.HistoryVisibilityPublic:
+		where = append(where, `EXISTS (
+			SELECT 1
+			FROM public_links pl
+			WHERE pl.item_id = i.id
+			  AND (pl.expires_at IS NULL OR pl.expires_at > ?)
+		)`)
+		args = append(args, opt.Now.UTC())
+	case domain.HistoryVisibilityPrivate:
+		where = append(where, `NOT EXISTS (
+			SELECT 1
+			FROM public_links pl
+			WHERE pl.item_id = i.id
+			  AND (pl.expires_at IS NULL OR pl.expires_at > ?)
+		)`)
+		args = append(args, opt.Now.UTC())
 	}
 
 	tokens := searchTokens(opt.Query)

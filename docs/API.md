@@ -722,15 +722,16 @@ History/gallery interface.
 
 **Query params**
 
-| Param    | Type         | Description                                        |
-| -------- | ------------ | -------------------------------------------------- |
-| `cursor` | integer      | Load items with `id < cursor`                      |
-| `type`   | string       | Filter by item type, e.g. `image`, `video`, `file` |
-| `q`      | string       | Search query                                       |
-| `body`   | `1`          | Enable text/code file body search                  |
-| `from`   | `YYYY-MM-DD` | Start upload date                                  |
-| `to`     | `YYYY-MM-DD` | End upload date                                    |
-| `recent` | string       | Recent-time preset                                 |
+| Param        | Type         | Description                                             |
+| ------------ | ------------ | ------------------------------------------------------- |
+| `cursor`     | integer      | Load items with `id < cursor`                           |
+| `type`       | string       | Filter by item type, e.g. `image`, `video`, `file`      |
+| `q`          | string       | Search query                                            |
+| `body`       | `1`          | Enable text/code file body search                       |
+| `from`       | `YYYY-MM-DD` | Start upload date                                       |
+| `to`         | `YYYY-MM-DD` | End upload date                                         |
+| `recent`     | string       | Recent-time preset                                      |
+| `visibility` | string       | Active public-link filter: `public`, `private`, `all`   |
 
 Supported `recent` values:
 
@@ -746,6 +747,7 @@ Supported `recent` values:
 
 When requested via HTMX, returns only the `history_items` HTML.
 The page size is `HISTORY_PAGE_SIZE`.
+For `visibility=private`, items with expired public links are included because they are not currently publicly available.
 
 ---
 
