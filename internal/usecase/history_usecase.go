@@ -22,6 +22,7 @@ type HistoryQuery struct {
 	Types       []string
 	Query       string
 	SearchBody  bool
+	Visibility  string
 	DateFromRaw string
 	DateToRaw   string
 	Recent      string
@@ -34,6 +35,7 @@ type HistoryResult struct {
 	Types      []string
 	Query      string
 	SearchBody bool
+	Visibility string
 	DateFrom   string
 	DateTo     string
 	Recent     string
@@ -43,6 +45,7 @@ type historyFilters struct {
 	Types       []string
 	Query       string
 	SearchBody  bool
+	Visibility  string
 	DateFrom    time.Time
 	DateTo      time.Time
 	Recent      string
@@ -62,14 +65,16 @@ func (uc *HistoryUseCase) Search(ctx context.Context, query HistoryQuery) (Histo
 		return HistoryResult{}, fmt.Errorf("%w: limit must be positive", ErrInvalidInput)
 	}
 
+	now := uc.now()
 	filters, err := parseHistoryFilters(
 		query.Types,
 		strings.TrimSpace(query.Query),
 		query.SearchBody,
+		strings.TrimSpace(query.Visibility),
 		strings.TrimSpace(query.DateFromRaw),
 		strings.TrimSpace(query.DateToRaw),
 		strings.TrimSpace(query.Recent),
-		uc.now(),
+		now,
 	)
 	if err != nil {
 		return HistoryResult{}, fmt.Errorf("%w: %v", ErrInvalidInput, err)
@@ -81,8 +86,10 @@ func (uc *HistoryUseCase) Search(ctx context.Context, query HistoryQuery) (Histo
 		Limit:       query.Limit,
 		Query:       filters.Query,
 		SearchBody:  filters.SearchBody,
+		Visibility:  filters.Visibility,
 		DateFrom:    filters.DateFrom,
 		DateTo:      filters.DateTo,
+		Now:         now,
 		HasDateFrom: filters.HasDateFrom,
 		HasDateTo:   filters.HasDateTo,
 	})
@@ -96,6 +103,7 @@ func (uc *HistoryUseCase) Search(ctx context.Context, query HistoryQuery) (Histo
 		Types:      filters.Types,
 		Query:      filters.Query,
 		SearchBody: filters.SearchBody,
+		Visibility: filters.Visibility,
 		DateFrom:   query.DateFromRaw,
 		DateTo:     query.DateToRaw,
 		Recent:     filters.Recent,
@@ -106,6 +114,7 @@ func parseHistoryFilters(
 	types []string,
 	query string,
 	searchBody bool,
+	visibility string,
 	dateFromRaw string,
 	dateToRaw string,
 	recent string,
@@ -116,6 +125,15 @@ func parseHistoryFilters(
 		Query:      query,
 		SearchBody: searchBody,
 		Recent:     recent,
+	}
+
+	switch visibility {
+	case "", "all":
+		filters.Visibility = domain.HistoryVisibilityAll
+	case domain.HistoryVisibilityPublic, domain.HistoryVisibilityPrivate:
+		filters.Visibility = visibility
+	default:
+		return filters, fmt.Errorf("invalid visibility")
 	}
 
 	if dateFromRaw != "" {

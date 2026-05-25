@@ -9,9 +9,10 @@
     class="btn"
     data-share-id="{{.ID}}"
     data-share-filename="{{.Filename}}"
+    data-share-label-default="Share link"
     onclick="openPublicShareDialog(this)"
   >
-    Share link
+    {{if .PublicLinkActive}}Manage link{{else}}Share link{{end}}
   </button>
 
   <button

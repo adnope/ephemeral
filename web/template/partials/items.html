@@ -45,9 +45,10 @@
         role="menuitem"
         data-share-id="{{.ID}}"
         data-share-filename="{{.Filename}}"
+        data-share-label-default="Share link"
         @click.stop="openPublicShareDialog($el)"
       >
-        Share link
+        {{if .PublicLinkActive}}Manage link{{else}}Share link{{end}}
       </button>
       {{end}}
 

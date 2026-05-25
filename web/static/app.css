@@ -1185,7 +1185,9 @@ dialog::backdrop {
 
 .history-search-date-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns:
+    minmax(0, 0.85fr) minmax(0, 0.85fr) minmax(0, 0.95fr)
+    minmax(0, 0.9fr);
   gap: 8px;
 }
 
@@ -1745,10 +1747,12 @@ dialog.public-share-dialog {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
 }
 
 dialog.public-share-dialog[open] {
   display: block;
+  animation: public-share-dialog-in 160ms ease-out;
 }
 
 .public-share-form {
@@ -1756,6 +1760,13 @@ dialog.public-share-dialog[open] {
   flex-direction: column;
   gap: 14px;
   padding: 16px;
+}
+
+dialog.public-share-dialog .public-share-form > * {
+  transition:
+    color 160ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .public-share-dialog-header {
@@ -1793,11 +1804,23 @@ dialog.public-share-dialog[open] {
   color: var(--color-text-muted);
   font-size: 18px;
   line-height: 1;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
 }
 
-.public-share-close:hover {
-  background: var(--color-hover);
-  color: var(--color-text);
+.public-share-close:hover,
+.public-share-close:focus-visible {
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.public-share-close:active {
+  transform: translateY(1px);
 }
 
 .public-share-field {
@@ -1806,6 +1829,11 @@ dialog.public-share-dialog[open] {
   gap: 5px;
   color: var(--color-text-muted);
   font-weight: 600;
+  transition: color 160ms ease;
+}
+
+.public-share-field:focus-within {
+  color: var(--color-link);
 }
 
 .public-share-field select,
@@ -1818,6 +1846,16 @@ dialog.public-share-dialog[open] {
   background: var(--color-surface);
   color: var(--color-text);
   font: inherit;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.public-share-field select:hover,
+.public-share-result input:hover {
+  border-color: rgb(0 102 204 / 35%);
+  background: var(--color-surface-muted);
 }
 
 .public-share-field select:focus,
@@ -1843,8 +1881,37 @@ dialog.public-share-dialog[open] {
   gap: 8px;
 }
 
+dialog.public-share-dialog .btn {
+  border: 1px solid transparent;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+dialog.public-share-dialog .btn:hover:not(:disabled),
+dialog.public-share-dialog .btn:focus-visible:not(:disabled) {
+  background: #005bb8;
+  border-color: #005bb8;
+  color: white;
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
+}
+
+dialog.public-share-dialog .btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+dialog.public-share-dialog .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .public-share-state-text {
   color: var(--color-text-muted);
+  transition: color 160ms ease;
 }
 
 .public-share-revoke {
@@ -1853,9 +1920,32 @@ dialog.public-share-dialog[open] {
   color: white;
 }
 
+dialog.public-share-dialog .public-share-revoke:hover:not(:disabled),
+dialog.public-share-dialog .public-share-revoke:focus-visible:not(:disabled) {
+  background: #a40e26;
+  border-color: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.22);
+}
+
 .public-share-status {
   min-height: 16px;
   color: var(--color-text-muted);
+  transition:
+    color 160ms ease,
+    opacity 180ms ease;
+}
+
+@keyframes public-share-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .public-share-page {

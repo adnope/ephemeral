@@ -1,6 +1,6 @@
 services:
   ephemeral:
-    build: .
+    image: adnope/ephemeral:indev
     mem_limit: 768m
     mem_reservation: 512m
     ports:
