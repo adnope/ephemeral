@@ -1948,6 +1948,150 @@ dialog.public-share-dialog .public-share-revoke:focus-visible:not(:disabled) {
   }
 }
 
+dialog.delete-confirm-dialog {
+  width: min(92vw, 315px);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+dialog.delete-confirm-dialog[open] {
+  display: block;
+  animation: public-share-dialog-in 160ms ease-out;
+}
+
+.delete-confirm-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 16px 10px;
+  text-align: center;
+}
+
+.delete-confirm-form > * {
+  transition:
+    color 160ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.delete-confirm-header {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+.delete-confirm-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.delete-confirm-message {
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.delete-confirm-close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+.delete-confirm-close:hover,
+.delete-confirm-close:focus-visible {
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  outline: none;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.delete-confirm-close:active {
+  transform: translateY(1px);
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+dialog.delete-confirm-dialog .btn {
+  border: 1px solid transparent;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+}
+
+dialog.delete-confirm-dialog .btn:focus-visible:not(:disabled) {
+  outline: none;
+}
+
+dialog.delete-confirm-dialog .btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+dialog.delete-confirm-dialog .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.delete-confirm-cancel {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.delete-confirm-cancel:hover:not(:disabled),
+.delete-confirm-cancel:focus-visible:not(:disabled) {
+  border-color: rgb(0 102 204 / 35%);
+  background: rgb(0 102 204 / 10%);
+  color: var(--color-link);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.12);
+}
+
+.delete-confirm-delete {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: white;
+}
+
+.delete-confirm-delete:hover:not(:disabled),
+.delete-confirm-delete:focus-visible:not(:disabled) {
+  background: #a40e26;
+  border-color: #a40e26;
+  color: white;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.22);
+}
+
 .public-share-page {
   align-items: center;
   padding: 18px;

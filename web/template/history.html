@@ -3,7 +3,7 @@
 <html>
   <head>
     <title>Ephemeral - History</title>
-    <link rel="stylesheet" href="/static/app.css" />
+    {{template "stylesheet_bootstrap" .}}
     <script src="/static/app.min.js" defer></script>
     <link rel="icon" href="/static/favicon.ico" sizes="any" />
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
@@ -172,8 +172,8 @@
     </div>
 
     {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
-    {{template "text_viewer_scripts" .}} {{template "public_share_scripts" .}}
-    {{template "media_scripts" .}}
+    {{template "delete_confirm_dialog" .}} {{template "text_viewer_scripts" .}}
+    {{template "public_share_scripts" .}} {{template "media_scripts" .}}
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         if (!window.EventSource || !window.htmx) return;

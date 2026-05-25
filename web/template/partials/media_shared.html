@@ -286,6 +286,55 @@
     <div id="publicShareStatus" class="public-share-status" role="status"></div>
   </form>
 </dialog>
+{{end}} {{define "delete_confirm_dialog"}}
+<dialog
+  id="deleteConfirmDialog"
+  class="delete-confirm-dialog"
+  aria-labelledby="deleteConfirmTitle"
+  aria-describedby="deleteConfirmMessage"
+>
+  <div class="delete-confirm-form">
+    <div class="delete-confirm-header">
+      <div>
+        <div id="deleteConfirmTitle" class="delete-confirm-title">
+          Delete item
+        </div>
+        <div id="deleteConfirmMessage" class="delete-confirm-message">
+          This item will be deleted permanently.
+        </div>
+      </div>
+
+      <button
+        type="button"
+        id="deleteConfirmClose"
+        class="delete-confirm-close"
+        aria-label="Cancel delete"
+        onclick="cancelDeleteConfirmation()"
+      >
+        ×
+      </button>
+    </div>
+
+    <div class="delete-confirm-actions">
+      <button
+        type="button"
+        id="deleteConfirmCancel"
+        class="btn delete-confirm-cancel"
+        onclick="cancelDeleteConfirmation()"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        id="deleteConfirmConfirm"
+        class="btn delete-confirm-delete"
+        onclick="confirmDeleteItem()"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+</dialog>
 {{end}} {{define "public_share_scripts"}}
 <script>
   const publicShareState = {
@@ -863,6 +912,7 @@
       const hlsModule = await loadHLSModule();
       const Hls = hlsModule.default;
       if (!Hls || !Hls.isSupported()) return;
+      if (!dialog.open || !video.isConnected || hlsPlayers.has(video)) return;
 
       const hls = new Hls({
         capLevelToPlayerSize: true,
@@ -877,24 +927,41 @@
   }
 
   function destroyDialogHLS(dialog) {
-    const video = dialog.querySelector("video[data-hls-src]");
-    if (!(video instanceof HTMLVideoElement)) return;
+    dialog.querySelectorAll("video[data-hls-src]").forEach((video) => {
+      if (!(video instanceof HTMLVideoElement)) return;
 
-    const hls = hlsPlayers.get(video);
-    if (!hls) return;
+      const hls = hlsPlayers.get(video);
+      if (!hls) return;
 
-    hls.destroy();
-    hlsPlayers.delete(video);
+      hls.destroy();
+      hlsPlayers.delete(video);
+    });
+  }
+
+  function stopDialogVideos(dialog) {
+    destroyDialogHLS(dialog);
+
+    dialog.querySelectorAll("video").forEach((video) => {
+      if (!(video instanceof HTMLVideoElement)) return;
+
+      video.pause();
+      try {
+        video.currentTime = 0;
+      } catch (error) {
+        console.warn("video reset failed", error);
+      }
+      video.load();
+    });
   }
 
   window.openMediaDialog = function (dialog) {
     if (!(dialog instanceof HTMLDialogElement)) return;
 
-    if (!dialog.dataset.hlsCleanupBound) {
+    if (!dialog.dataset.mediaCleanupBound) {
       dialog.addEventListener("close", () => {
-        destroyDialogHLS(dialog);
+        stopDialogVideos(dialog);
       });
-      dialog.dataset.hlsCleanupBound = "1";
+      dialog.dataset.mediaCleanupBound = "1";
     }
 
     void prepareDialogVideo(dialog);
@@ -917,9 +984,6 @@
 
     const targetIndex = index - direction;
     if (targetIndex < 0 || targetIndex >= dialogs.length) return;
-
-    const currentVideo = currentDialog.querySelector("video");
-    if (currentVideo) currentVideo.pause();
 
     currentDialog.close();
     window.openMediaDialog(dialogs[targetIndex]);
@@ -949,43 +1013,10 @@
     window.navigateMedia(dialog, direction);
   };
 
-  window.removeItemFromDOM = function (id) {
-    const item = document.getElementById(`item-${id}`);
-    if (item) item.remove();
-
-    const galleryItem = document.getElementById(`history-item-${id}`);
-    if (galleryItem) galleryItem.remove();
-  };
-
-  window.deleteItem = async function (id) {
-    const confirmed = window.confirm("Delete this item forever?");
-    if (!confirmed) return;
-
-    document.querySelectorAll("dialog[open]").forEach((dialog) => {
-      if (dialog instanceof HTMLDialogElement) dialog.close();
-    });
-
-    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
-
-    if (!response.ok && response.status !== 404) {
-      window.alert("Failed to delete item.");
-      return;
-    }
-
-    window.removeItemFromDOM(id);
-  };
-
-  window.deleteItemFromElement = function (element) {
-    if (!(element instanceof HTMLElement)) return;
-
-    const rawID = element.dataset.deleteId;
-    const id = Number.parseInt(rawID || "", 10);
-
-    if (!Number.isFinite(id) || id <= 0) return;
-
-    window.deleteItem(id);
+  const deleteConfirmState = {
+    itemID: 0,
+    deleting: false,
+    resolve: null,
   };
 
   window.removeItemFromDOM = function (id) {
@@ -997,23 +1028,82 @@
   };
 
   window.deleteItem = async function (id) {
-    const confirmed = window.confirm("Delete this item forever?");
-    if (!confirmed) return;
+    if (!Number.isFinite(id) || id <= 0) return false;
 
-    document.querySelectorAll("dialog[open]").forEach((dialog) => {
-      if (dialog instanceof HTMLDialogElement) dialog.close();
+    const dialog = document.getElementById("deleteConfirmDialog");
+    if (!(dialog instanceof HTMLDialogElement)) {
+      console.error("missing delete confirmation dialog");
+      return false;
+    }
+
+    resetDeleteConfirmation();
+
+    return new Promise((resolve) => {
+      deleteConfirmState.itemID = id;
+      deleteConfirmState.resolve = resolve;
+
+      if (!dialog.open) dialog.showModal();
+
+      requestAnimationFrame(() => {
+        const cancelButton = document.getElementById("deleteConfirmCancel");
+        if (cancelButton instanceof HTMLButtonElement) {
+          cancelButton.focus({ preventScroll: true });
+        }
+      });
     });
+  };
 
-    const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-    });
+  window.cancelDeleteConfirmation = function () {
+    if (deleteConfirmState.deleting) return;
+    closeDeleteConfirmation(false);
+  };
 
-    if (!response.ok && response.status !== 404) {
-      window.alert("Failed to delete item.");
+  window.confirmDeleteItem = async function () {
+    if (deleteConfirmState.deleting) return;
+
+    const id = deleteConfirmState.itemID;
+    if (!Number.isFinite(id) || id <= 0) {
+      closeDeleteConfirmation(false);
       return;
     }
 
-    window.removeItemFromDOM(id);
+    setDeleteConfirmControlsDisabled(true);
+    deleteConfirmState.deleting = true;
+    setDeleteConfirmButtonLabel("Deleting...");
+
+    document.querySelectorAll("dialog[open]").forEach((dialog) => {
+      if (
+        dialog instanceof HTMLDialogElement &&
+        dialog.id !== "deleteConfirmDialog"
+      ) {
+        dialog.close();
+      }
+    });
+
+    try {
+      const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`delete failed: HTTP ${response.status}`);
+      }
+
+      window.removeItemFromDOM(id);
+      closeDeleteConfirmation(true);
+    } catch (error) {
+      console.error(error);
+      deleteConfirmState.deleting = false;
+      setDeleteConfirmControlsDisabled(false);
+      setDeleteConfirmButtonLabel("Could not delete");
+
+      window.setTimeout(() => {
+        if (!deleteConfirmState.deleting) {
+          setDeleteConfirmButtonLabel("Delete");
+        }
+      }, 1600);
+    }
   };
 
   window.deleteItemFromElement = function (element) {
@@ -1024,5 +1114,69 @@
 
     void window.deleteItem(id);
   };
+
+  function resetDeleteConfirmation() {
+    setDeleteConfirmButtonLabel("Delete");
+    setDeleteConfirmControlsDisabled(false);
+
+    if (deleteConfirmState.resolve) {
+      deleteConfirmState.resolve(false);
+    }
+
+    deleteConfirmState.itemID = 0;
+    deleteConfirmState.deleting = false;
+    deleteConfirmState.resolve = null;
+  }
+
+  function closeDeleteConfirmation(deleted) {
+    const dialog = document.getElementById("deleteConfirmDialog");
+    const resolve = deleteConfirmState.resolve;
+
+    deleteConfirmState.itemID = 0;
+    deleteConfirmState.deleting = false;
+    deleteConfirmState.resolve = null;
+    setDeleteConfirmControlsDisabled(false);
+
+    if (dialog instanceof HTMLDialogElement && dialog.open) {
+      dialog.close();
+    }
+    if (resolve) resolve(deleted);
+  }
+
+  function setDeleteConfirmControlsDisabled(disabled) {
+    [
+      "deleteConfirmClose",
+      "deleteConfirmCancel",
+      "deleteConfirmConfirm",
+    ].forEach((id) => {
+      const button = document.getElementById(id);
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = disabled;
+      }
+    });
+  }
+
+  function setDeleteConfirmButtonLabel(label) {
+    const button = document.getElementById("deleteConfirmConfirm");
+    if (button instanceof HTMLButtonElement) {
+      button.textContent = label;
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    const dialog = document.getElementById("deleteConfirmDialog");
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      window.cancelDeleteConfirmation();
+    });
+
+    dialog.addEventListener("close", () => {
+      if (deleteConfirmState.resolve && !deleteConfirmState.deleting) {
+        closeDeleteConfirmation(false);
+      }
+    });
+  });
 </script>
 {{end}}

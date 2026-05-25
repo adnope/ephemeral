@@ -1,0 +1,28 @@
+{{define "stylesheet_bootstrap"}}
+<style>
+  html.app-shell-loading body {
+    visibility: hidden;
+  }
+</style>
+<script>
+  (() => {
+    const root = document.documentElement;
+    root.classList.add("app-shell-loading");
+
+    window.__ephemeralStylesReady = () => {
+      root.classList.remove("app-shell-loading");
+      delete window.__ephemeralStylesReady;
+    };
+
+    window.setTimeout(() => {
+      if (window.__ephemeralStylesReady) window.__ephemeralStylesReady();
+    }, 2000);
+  })();
+</script>
+<link
+  rel="stylesheet"
+  href="/static/app.css"
+  onload="window.__ephemeralStylesReady && window.__ephemeralStylesReady()"
+  onerror="window.__ephemeralStylesReady && window.__ephemeralStylesReady()"
+/>
+{{end}}
