@@ -34,8 +34,15 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	items, err := h.itemTemplateData(r.Context(), page.Items)
+	if err != nil {
+		h.log.Error("index: public link state", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	data := map[string]any{
-		"Items":             page.Items,
+		"Items":             items,
 		"NextCursor":        page.NextCursor,
 		"UploadConcurrency": h.settings.UploadConcurrency,
 	}

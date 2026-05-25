@@ -33,6 +33,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 
 - Chat-style feed
 - Image and video media viewer with thumbnail preview and browser-friendly video playback copies
+- Public file links with optional expiry
 - Generic file view/download
 - Code and text file viewer with syntax highlighting
 - Upload progress queue for file uploads

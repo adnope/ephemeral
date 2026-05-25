@@ -10,13 +10,13 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="manifest" href="/static/manifest.json" />
   </head>
-  <body x-data="ephemeral()">
+  <body x-data="ephemeral()" data-upload-concurrency="{{.UploadConcurrency}}">
     <div class="app-layout">
       <div
         class="chat-app"
-        @dragover.prevent="dragover = true"
-        @dragleave.prevent="dragover = false"
-        @drop.prevent="handleDrop"
+        x-on:dragover.prevent="dragover = true"
+        x-on:dragleave.prevent="dragover = false"
+        x-on:drop.prevent="handleDrop"
       >
         <div x-show="dragover" class="drag-overlay" style="display: none">
           Drop file here to upload
@@ -53,15 +53,15 @@
         </main>
 
         <footer>
-          <form @submit.prevent="sendMessage" class="input-form">
+          <form x-on:submit.prevent="sendMessage" class="input-form">
             <label class="composer-icon-btn" aria-label="Attach files">
               <img src="/static/attachment.svg" alt="" class="composer-icon" />
               <input
                 type="file"
                 multiple
-                @change="handleFileSelect"
-                @cancel="$el.blur()"
-                @click="$el.blur()"
+                x-on:change="handleFileSelect"
+                x-on:cancel="$el.blur()"
+                x-on:click="$el.blur()"
                 class="visually-hidden-file-input"
               />
             </label>
@@ -71,8 +71,8 @@
               x-model="message"
               placeholder="Type message..."
               class="input-text composer-input"
-              @input="resize($el)"
-              @keydown.enter.prevent="if (!$event.shiftKey) sendMessage(); else { message += '\n'; $nextTick(() => resize($el)); }"
+              x-on:input="resize($el)"
+              x-on:keydown.enter.prevent="handleMessageEnter($event, $el)"
               rows="1"
             ></textarea>
 
@@ -91,23 +91,23 @@
         x-cloak
         x-show="hasUploads"
         class="upload-queue"
-        :class="{ 'is-collapsed': uploadQueueCollapsed }"
+        x-bind:class="{ 'is-collapsed': uploadQueueCollapsed }"
         aria-label="Upload queue"
       >
         <div class="upload-queue-header">
           <button
             type="button"
             class="upload-queue-toggle"
-            @click="uploadQueueCollapsed = !uploadQueueCollapsed"
-            :aria-expanded="(!uploadQueueCollapsed).toString()"
+            x-on:click="uploadQueueCollapsed = !uploadQueueCollapsed"
+            x-bind:aria-expanded="(!uploadQueueCollapsed).toString()"
           >
-            <div class="upload-queue-title">
+            <span class="upload-queue-title">
               <span>Uploads</span>
               <span
                 class="upload-queue-summary"
                 x-text="uploadQueueSummary"
               ></span>
-            </div>
+            </span>
 
             <span
               class="upload-queue-chevron"
@@ -120,7 +120,7 @@
             type="button"
             class="upload-queue-close"
             aria-label="Close upload queue"
-            @click="closeUploadQueue"
+            x-on:click="closeUploadQueue"
           >
             ×
           </button>
@@ -129,7 +129,7 @@
         <div class="upload-queue-overall">
           <div
             class="upload-progress-fill"
-            :style="`width: ${overallUploadProgress}%`"
+            x-bind:style="`width: ${overallUploadProgress}%`"
           ></div>
         </div>
 
@@ -142,7 +142,7 @@
         </div>
 
         <div class="upload-queue-body" x-show="!uploadQueueCollapsed">
-          <template x-for="upload in uploads" :key="upload.id">
+          <template x-for="upload in uploads" x-bind:key="upload.id">
             <article class="upload-queue-item">
               <div class="upload-item-main">
                 <div class="upload-item-name" x-text="upload.name"></div>
@@ -157,8 +157,8 @@
                 <div class="upload-item-progress">
                   <div
                     class="upload-progress-fill"
-                    :class="{ 'is-failed': upload.status === 'failed', 'is-done': upload.status === 'done' }"
-                    :style="`width: ${upload.progress}%`"
+                    x-bind:class="{ 'is-failed': upload.status === 'failed', 'is-done': upload.status === 'done' }"
+                    x-bind:style="`width: ${upload.progress}%`"
                   ></div>
                 </div>
 
@@ -179,7 +179,7 @@
                   type="button"
                   class="upload-action-link"
                   x-show="upload.status === 'queued' || upload.status === 'uploading'"
-                  @click="cancelUpload(upload)"
+                  x-on:click="cancelUpload(upload)"
                 >
                   Cancel
                 </button>
@@ -188,7 +188,7 @@
                   type="button"
                   class="upload-action-link"
                   x-show="upload.status === 'failed' || upload.status === 'canceled'"
-                  @click="retryUpload(upload)"
+                  x-on:click="retryUpload(upload)"
                 >
                   Retry
                 </button>
@@ -200,7 +200,7 @@
             <button
               type="button"
               class="upload-action-link"
-              @click="clearFinishedUploads"
+              x-on:click="clearFinishedUploads"
               x-show="hasFinishedUploads"
             >
               Clear completed
@@ -210,11 +210,17 @@
       </section>
     </div>
 
-    {{template "text_viewer_dialog" .}} {{template "text_viewer_scripts" .}}
+    {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
+    {{template "text_viewer_scripts" .}} {{template "public_share_scripts" .}}
     {{template "media_scripts" .}}
 
     <script>
       function ephemeral() {
+        const uploadConcurrency = Number.parseInt(
+          document.body.dataset.uploadConcurrency || "",
+          10,
+        );
+
         return {
           dragover: false,
           message: "",
@@ -222,7 +228,10 @@
           uploads: [],
           uploadSeq: 0,
           activeUploads: 0,
-          maxConcurrentUploads: {{.UploadConcurrency}},
+          maxConcurrentUploads:
+            Number.isSafeInteger(uploadConcurrency) && uploadConcurrency > 0
+              ? uploadConcurrency
+              : 1,
           uploadQueueCollapsed: false,
 
           pendingLocalTextCreates: 0,
@@ -368,7 +377,11 @@
 
           handleDrop(e) {
             this.dragover = false;
-            this.enqueueFiles(e.dataTransfer.files);
+            const dataTransfer = e.dataTransfer;
+            if (!dataTransfer || this.dropIncludesDirectory(dataTransfer))
+              return;
+
+            this.enqueueFiles(dataTransfer.files);
           },
 
           handleFileSelect(e) {
@@ -380,6 +393,16 @@
               input.value = "";
               input.blur();
             }
+          },
+
+          handleMessageEnter(event, textarea) {
+            if (!event.shiftKey) {
+              this.sendMessage();
+              return;
+            }
+
+            this.message += "\n";
+            this.$nextTick(() => this.resize(textarea));
           },
 
           enqueueFiles(fileList) {
@@ -403,6 +426,23 @@
 
             this.uploadQueueCollapsed = false;
             this.processUploadQueue();
+          },
+
+          dropIncludesDirectory(dataTransfer) {
+            return Array.from(dataTransfer.items || []).some((item) =>
+              this.isDirectoryDropItem(item),
+            );
+          },
+
+          isDirectoryDropItem(item) {
+            if (item.kind !== "file") return false;
+
+            // Detect folders before DataTransfer.files exposes them as failed uploads.
+            const getAsEntry = item.webkitGetAsEntry || item.getAsEntry;
+            if (typeof getAsEntry !== "function") return false;
+
+            const entry = getAsEntry.call(item);
+            return entry?.isDirectory === true;
           },
 
           processUploadQueue() {
@@ -631,11 +671,15 @@
               if (!link) continue;
 
               if (start > last) {
-                root.appendChild(document.createTextNode(text.slice(last, start)));
+                root.appendChild(
+                  document.createTextNode(text.slice(last, start)),
+                );
               }
 
               const anchor = document.createElement("a");
-              anchor.href = /^https?:\/\//i.test(link) ? link : `https://${link}`;
+              anchor.href = /^https?:\/\//i.test(link)
+                ? link
+                : `https://${link}`;
               anchor.target = "_blank";
               anchor.rel = "noopener noreferrer";
               anchor.textContent = link;

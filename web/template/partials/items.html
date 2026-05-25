@@ -39,6 +39,16 @@
       >
         Download
       </a>
+      <button
+        type="button"
+        class="bubble-action-menu-item"
+        role="menuitem"
+        data-share-id="{{.ID}}"
+        data-share-filename="{{.Filename}}"
+        @click.stop="openPublicShareDialog($el)"
+      >
+        Share link
+      </button>
       {{end}}
 
       <button
@@ -57,6 +67,7 @@
   "item_video" .}} {{else}} {{template "item_file" .}} {{end}}
 
   <div class="bubble-footer">
+    {{template "public_link_indicator" .}}
     <time class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</time>
   </div>
 </div>

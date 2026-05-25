@@ -6,6 +6,16 @@
 
   <button
     type="button"
+    class="btn"
+    data-share-id="{{.ID}}"
+    data-share-filename="{{.Filename}}"
+    onclick="openPublicShareDialog(this)"
+  >
+    Share link
+  </button>
+
+  <button
+    type="button"
     class="btn media-dialog-delete-btn"
     data-delete-id="{{.ID}}"
     onclick="deleteItemFromElement(this)"
@@ -17,6 +27,32 @@
     Close
   </button>
 </div>
+{{end}} {{define "public_link_indicator"}}
+<span
+  class="public-link-indicator"
+  data-public-link-indicator
+  title="Public link active"
+  aria-label="Public link active"
+  {{if
+  not
+  .PublicLinkActive}}hidden{{end}}
+>
+  <svg
+    class="public-link-indicator-icon"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      d="M10.6 13.4a1 1 0 0 1 0-1.4l2.8-2.8a1 1 0 0 1 1.4 1.4L12 13.4a1 1 0 0 1-1.4 0Z"
+    ></path>
+    <path
+      d="M8.5 17.5a4 4 0 0 1-2.8-6.8l2.8-2.8a4 4 0 0 1 5.7 0 1 1 0 1 1-1.4 1.4 2 2 0 0 0-2.8 0l-2.8 2.8a2 2 0 0 0 2.8 2.8 1 1 0 1 1 1.4 1.4 4 4 0 0 1-2.9 1.2Z"
+    ></path>
+    <path
+      d="M12.7 17.2a1 1 0 0 1-.7-1.7 2 2 0 0 0 2.8 0l2.8-2.8a2 2 0 0 0-2.8-2.8 1 1 0 1 1-1.4-1.4 4 4 0 0 1 5.7 5.7l-2.8 2.8a4 4 0 0 1-3.6 1.2Z"
+    ></path>
+  </svg>
+</span>
 {{end}} {{define "media_video_sources"}} {{if .Metadata.HLS}}
 <source src="{{fileURL .Metadata.HLS}}" type="application/vnd.apple.mpegurl" />
 {{end}} {{if .Metadata.Playback}}
@@ -169,6 +205,369 @@
 
   <div id="textViewerCode" class="text-viewer-code"></div>
 </dialog>
+{{end}} {{define "public_share_dialog"}}
+<dialog id="publicShareDialog" class="public-share-dialog">
+  <form class="public-share-form" onsubmit="createPublicShareLink(event)">
+    <div class="public-share-dialog-header">
+      <div>
+        <div class="public-share-dialog-title">Public link</div>
+        <div
+          id="publicShareFilename"
+          class="public-share-dialog-filename"
+        ></div>
+      </div>
+
+      <button
+        type="button"
+        class="public-share-close"
+        onclick="closePublicShareDialog()"
+      >
+        ×
+      </button>
+    </div>
+
+    <input type="hidden" id="publicShareItemID" />
+
+    <div id="publicShareLoading" class="public-share-status" hidden>
+      Loading...
+    </div>
+
+    <div id="publicShareLinkDetails" class="public-share-result" hidden>
+      <label class="public-share-field">
+        <span>Link</span>
+        <input id="publicShareURL" type="text" readonly />
+      </label>
+
+      <div id="publicShareExpiryText" class="public-share-state-text"></div>
+
+      <div id="publicShareResultActions" class="public-share-result-actions">
+        <button type="button" class="btn" onclick="copyPublicShareLink()">
+          Copy
+        </button>
+        <a
+          id="publicShareOpen"
+          href="#"
+          target="_blank"
+          rel="noopener"
+          class="btn"
+        >
+          Open
+        </a>
+        <button
+          type="button"
+          class="btn public-share-revoke"
+          onclick="revokePublicShareLink()"
+        >
+          Revoke
+        </button>
+      </div>
+    </div>
+
+    <label id="publicShareExpiryField" class="public-share-field">
+      <span id="publicShareExpiryLabel">Expires</span>
+      <select id="publicShareExpiry">
+        <option value="3600">1 hour</option>
+        <option value="86400" selected>24 hours</option>
+        <option value="604800">7 days</option>
+        <option value="2592000">30 days</option>
+        <option value="">Never</option>
+      </select>
+    </label>
+
+    <button
+      type="submit"
+      id="publicShareCreate"
+      class="btn public-share-primary"
+    >
+      Create link
+    </button>
+
+    <div id="publicShareStatus" class="public-share-status" role="status"></div>
+  </form>
+</dialog>
+{{end}} {{define "public_share_scripts"}}
+<script>
+  const publicShareState = {
+    itemID: 0,
+    status: "none",
+  };
+
+  window.openPublicShareDialog = function (trigger) {
+    if (!(trigger instanceof HTMLElement)) return;
+
+    const itemID = Number.parseInt(trigger.dataset.shareId || "", 10);
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    document
+      .querySelectorAll(".bubble-menu-wrap.is-open")
+      .forEach((menu) => menu.classList.remove("is-open"));
+
+    const dialog = document.getElementById("publicShareDialog");
+    if (!(dialog instanceof HTMLDialogElement)) return;
+
+    rememberPublicShareTriggerLabel(trigger);
+    resetPublicShareDialog();
+    document.getElementById("publicShareItemID").value = String(itemID);
+    document.getElementById("publicShareFilename").textContent =
+      trigger.dataset.shareFilename || "";
+    publicShareState.itemID = itemID;
+
+    if (!dialog.open) dialog.showModal();
+    loadPublicShareLink(itemID);
+  };
+
+  window.closePublicShareDialog = function () {
+    const dialog = document.getElementById("publicShareDialog");
+    if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+  };
+
+  window.createPublicShareLink = async function (event) {
+    event.preventDefault();
+
+    const itemID = Number.parseInt(
+      document.getElementById("publicShareItemID").value || "",
+      10,
+    );
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    const createButton = document.getElementById("publicShareCreate");
+    const status = document.getElementById("publicShareStatus");
+    const expiry =
+      publicShareState.status === "expired"
+        ? "86400"
+        : document.getElementById("publicShareExpiry").value;
+
+    const body = {
+      expires_in_seconds: expiry === "" ? null : Number.parseInt(expiry, 10),
+    };
+
+    createButton.disabled = true;
+    status.textContent =
+      publicShareState.status === "active" ? "Updating..." : "Creating...";
+    const previousStatus = publicShareState.status;
+
+    try {
+      const response = await fetch(
+        `/api/items/${encodeURIComponent(itemID)}/public-link`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`public link failed: HTTP ${response.status}`);
+      }
+
+      const link = await response.json();
+      const absoluteURL = new URL(link.url, window.location.origin).href;
+
+      renderPublicShareState({
+        status: "active",
+        url: absoluteURL,
+        token: link.token,
+        expires_at: link.expires_at,
+      });
+      setPublicShareTriggerLabel(itemID, "active");
+      setPublicShareIndicator(itemID, true);
+      status.textContent =
+        previousStatus === "active" ? "Link updated" : "Link ready";
+    } catch (error) {
+      console.error(error);
+      status.textContent = "Could not create link.";
+    } finally {
+      createButton.disabled = false;
+    }
+  };
+
+  window.copyPublicShareLink = async function () {
+    const input = document.getElementById("publicShareURL");
+    const status = document.getElementById("publicShareStatus");
+    if (!input.value) return;
+
+    try {
+      await navigator.clipboard.writeText(input.value);
+    } catch {
+      input.select();
+      document.execCommand("copy");
+    }
+    status.textContent = "Copied";
+  };
+
+  window.revokePublicShareLink = async function () {
+    const itemID = Number.parseInt(
+      document.getElementById("publicShareItemID").value || "",
+      10,
+    );
+    if (!Number.isFinite(itemID) || itemID <= 0) return;
+
+    const status = document.getElementById("publicShareStatus");
+    status.textContent = "Revoking...";
+
+    const response = await fetch(
+      `/api/items/${encodeURIComponent(itemID)}/public-link`,
+      { method: "DELETE", headers: { Accept: "application/json" } },
+    );
+
+    if (!response.ok) {
+      status.textContent = "Could not revoke link.";
+      return;
+    }
+
+    renderPublicShareState({ status: "none" });
+    setPublicShareTriggerLabel(itemID, "none");
+    setPublicShareIndicator(itemID, false);
+    status.textContent = "Link revoked";
+  };
+
+  async function loadPublicShareLink(itemID) {
+    const loading = document.getElementById("publicShareLoading");
+    const createButton = document.getElementById("publicShareCreate");
+    const status = document.getElementById("publicShareStatus");
+
+    loading.hidden = false;
+    createButton.disabled = true;
+
+    try {
+      const response = await fetch(
+        `/api/items/${encodeURIComponent(itemID)}/public-link`,
+        { headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        throw new Error(`public link status failed: HTTP ${response.status}`);
+      }
+
+      const link = await response.json();
+      renderPublicShareState(link);
+      setPublicShareTriggerLabel(itemID, link.status);
+      setPublicShareIndicator(itemID, link.status === "active");
+    } catch (error) {
+      console.error(error);
+      status.textContent = "Could not load link.";
+      document.getElementById("publicShareExpiryField").hidden = true;
+      createButton.hidden = true;
+    } finally {
+      loading.hidden = true;
+      createButton.disabled = false;
+    }
+  }
+
+  function resetPublicShareDialog() {
+    publicShareState.itemID = 0;
+    publicShareState.status = "none";
+    document.getElementById("publicShareExpiry").value = "86400";
+    document.getElementById("publicShareURL").value = "";
+    document.getElementById("publicShareOpen").removeAttribute("href");
+    document.getElementById("publicShareLinkDetails").hidden = true;
+    document.getElementById("publicShareResultActions").hidden = false;
+    document.getElementById("publicShareExpiryField").hidden = false;
+    document.getElementById("publicShareExpiryLabel").textContent = "Expires";
+    document.getElementById("publicShareExpiryText").textContent = "";
+    document.getElementById("publicShareCreate").hidden = false;
+    document.getElementById("publicShareCreate").textContent = "Create link";
+    document.getElementById("publicShareStatus").textContent = "";
+    document.getElementById("publicShareLoading").hidden = true;
+  }
+
+  function renderPublicShareState(link) {
+    const state = link?.status || "none";
+    publicShareState.status = state;
+
+    const details = document.getElementById("publicShareLinkDetails");
+    const actions = document.getElementById("publicShareResultActions");
+    const expiryField = document.getElementById("publicShareExpiryField");
+    const expiryLabel = document.getElementById("publicShareExpiryLabel");
+    const createButton = document.getElementById("publicShareCreate");
+    const expiryText = document.getElementById("publicShareExpiryText");
+    const urlInput = document.getElementById("publicShareURL");
+    const openLink = document.getElementById("publicShareOpen");
+
+    const absoluteURL = link?.url
+      ? new URL(link.url, window.location.origin).href
+      : "";
+    urlInput.value = absoluteURL;
+
+    if (absoluteURL) {
+      openLink.href = absoluteURL;
+    } else {
+      openLink.removeAttribute("href");
+    }
+
+    details.hidden = state === "none";
+    actions.hidden = state !== "active";
+    expiryField.hidden = state === "expired";
+    createButton.hidden = false;
+
+    if (state === "active") {
+      expiryLabel.textContent = "Update expiry";
+      createButton.textContent = "Update expiry";
+      expiryText.textContent = link.expires_at
+        ? `Expires ${formatPublicShareDate(link.expires_at)}`
+        : "Does not expire";
+      return;
+    }
+
+    if (state === "expired") {
+      document.getElementById("publicShareExpiry").value = "86400";
+      createButton.textContent = "Create new link";
+      expiryText.textContent = link.expires_at
+        ? `Expired ${formatPublicShareDate(link.expires_at)}`
+        : "Expired";
+      return;
+    }
+
+    document.getElementById("publicShareExpiry").value = "86400";
+    expiryLabel.textContent = "Expires";
+    createButton.textContent = "Create link";
+    expiryText.textContent = "";
+  }
+
+  function formatPublicShareDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }
+
+  function rememberPublicShareTriggerLabel(trigger) {
+    if (!trigger.dataset.shareLabelDefault) {
+      trigger.dataset.shareLabelDefault =
+        trigger.textContent.trim() || "Share link";
+    }
+  }
+
+  function setPublicShareTriggerLabel(itemID, state) {
+    document.querySelectorAll("[data-share-id]").forEach((trigger) => {
+      if (!(trigger instanceof HTMLElement)) return;
+      if (trigger.dataset.shareId !== String(itemID)) return;
+
+      rememberPublicShareTriggerLabel(trigger);
+      trigger.textContent =
+        state === "active" || state === "expired"
+          ? "Manage link"
+          : trigger.dataset.shareLabelDefault || "Share link";
+    });
+  }
+
+  function setPublicShareIndicator(itemID, active) {
+    document.querySelectorAll("[data-item-id]").forEach((item) => {
+      if (!(item instanceof HTMLElement)) return;
+      if (item.dataset.itemId !== String(itemID)) return;
+
+      item.querySelectorAll("[data-public-link-indicator]").forEach((icon) => {
+        if (icon instanceof HTMLElement) {
+          icon.hidden = !active;
+        }
+      });
+    });
+  }
+</script>
 {{end}} {{define "text_viewer_scripts"}}
 <script type="module">
   const state = {

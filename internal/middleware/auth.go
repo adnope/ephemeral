@@ -29,11 +29,7 @@ func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration, cookie
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/static/") {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if _, ok := publicPaths[r.URL.Path]; ok {
+			if isPublicPath(r.URL.Path) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -77,6 +73,14 @@ func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration, cookie
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+func isPublicPath(path string) bool {
+	if strings.HasPrefix(path, "/static/") || strings.HasPrefix(path, "/share/") {
+		return true
+	}
+	_, ok := publicPaths[path]
+	return ok
 }
 
 func unauthenticated(w http.ResponseWriter, r *http.Request) {

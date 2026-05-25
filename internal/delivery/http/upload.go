@@ -92,7 +92,7 @@ func (h *Handler) Upload(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := h.tmpl.ExecuteTemplate(w, "item_partial", item); err != nil {
+		if err := h.tmpl.ExecuteTemplate(w, "item_partial", singleItemTemplateData(item)); err != nil {
 			h.log.Error("upload: render", "err", err)
 		}
 		return

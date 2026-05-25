@@ -9,6 +9,7 @@ var (
 	ErrNotFound           = errors.New("not found")
 	ErrForbidden          = errors.New("forbidden")
 	ErrUnsupportedPreview = errors.New("unsupported preview")
+	ErrUnsupportedShare   = errors.New("unsupported public share")
 	ErrPreviewTooLarge    = errors.New("preview too large")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrMissingCredentials = errors.New("missing credentials")

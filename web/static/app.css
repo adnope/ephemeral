@@ -1044,6 +1044,36 @@ dialog::backdrop {
   margin-top: 0;
 }
 
+.public-link-indicator {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(0 102 204 / 20%);
+  border-radius: 50%;
+  background: var(--color-link-bg);
+  color: var(--color-link);
+}
+
+.public-link-indicator[hidden] {
+  display: none;
+}
+
+.public-link-indicator-icon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.gallery-item > .public-link-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+
 .bubble-send-status {
   color: var(--color-text-muted);
   font-size: 0.8em;
@@ -1706,6 +1736,193 @@ dialog.text-viewer-dialog[open] {
 .bubble-action-menu-item.is-danger {
   color: var(--color-danger-bg);
   font-weight: 600;
+}
+
+dialog.public-share-dialog {
+  width: min(94vw, 460px);
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+dialog.public-share-dialog[open] {
+  display: block;
+}
+
+.public-share-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.public-share-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-share-dialog-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.public-share-dialog-filename {
+  max-width: 340px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-share-close {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.public-share-close:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.public-share-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.public-share-field select,
+.public-share-result input {
+  width: 100%;
+  height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.public-share-field select:focus,
+.public-share-result input:focus {
+  border-color: var(--color-link);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+.public-share-primary {
+  align-self: flex-start;
+}
+
+.public-share-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.public-share-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.public-share-state-text {
+  color: var(--color-text-muted);
+}
+
+.public-share-revoke {
+  border: 1px solid var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: white;
+}
+
+.public-share-status {
+  min-height: 16px;
+  color: var(--color-text-muted);
+}
+
+.public-share-page {
+  align-items: center;
+  padding: 18px;
+}
+
+.public-share-main {
+  width: min(100%, 1100px);
+}
+
+.public-share-panel {
+  width: 100%;
+  min-height: calc(100dvh - 36px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.public-share-header {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.public-share-header h1 {
+  max-width: 100%;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+
+.public-share-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  color: var(--color-text-muted);
+}
+
+.public-share-media {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.public-share-media img,
+.public-share-media video {
+  max-width: 100%;
+  max-height: calc(100dvh - 150px);
+  display: block;
+  object-fit: contain;
+}
+
+.public-share-media video {
+  width: 100%;
+}
+
+.public-share-actions {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
 }
 
 @media (max-width: 760px) {

@@ -84,6 +84,10 @@ func NewItemRepository(db *sql.DB) domain.ItemRepository {
 	return &itemRepository{db: db}
 }
 
+func NewPublicLinkRepository(db *sql.DB) domain.PublicLinkRepository {
+	return &publicLinkRepository{db: db}
+}
+
 func NewSessionRepository(db *sql.DB) domain.SessionRepository {
 	return &sessionRepository{db: db}
 }
