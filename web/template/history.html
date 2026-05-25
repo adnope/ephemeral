@@ -189,7 +189,7 @@
   data-item-id="{{.ID}}"
   x-data
 >
-  {{if eq .Type "image"}}
+  {{template "public_link_indicator" .}} {{if eq .Type "image"}}
   <dialog
     x-ref="histImgDialog_{{.ID}}"
     class="media-dialog"

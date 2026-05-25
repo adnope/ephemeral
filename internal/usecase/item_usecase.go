@@ -397,6 +397,30 @@ func (uc *ItemUseCase) PublicLinkStatus(ctx context.Context, itemID int64) (Publ
 	}, nil
 }
 
+func (uc *ItemUseCase) ActivePublicLinkItemIDs(ctx context.Context, items []*domain.Item) (map[int64]bool, error) {
+	active := make(map[int64]bool)
+	if uc.public == nil || len(items) == 0 {
+		return active, nil
+	}
+
+	itemIDs := make([]int64, 0, len(items))
+	for _, item := range items {
+		if item == nil || item.ID <= 0 || item.Type == domain.ItemTypeText {
+			continue
+		}
+		itemIDs = append(itemIDs, item.ID)
+	}
+	if len(itemIDs) == 0 {
+		return active, nil
+	}
+
+	active, err := uc.public.ActiveItemIDs(ctx, itemIDs, uc.now())
+	if err != nil {
+		return nil, fmt.Errorf("list active public link item ids: %w", err)
+	}
+	return active, nil
+}
+
 func (uc *ItemUseCase) RevokePublicLink(ctx context.Context, itemID int64) error {
 	if itemID <= 0 {
 		return fmt.Errorf("%w: item id must be positive", ErrInvalidInput)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/adnope/ephemeral/internal/domain"
@@ -50,6 +51,48 @@ func (r *publicLinkRepository) GetForItem(ctx context.Context, itemID int64) (*d
 
 	row := r.db.QueryRowContext(ctx, query, itemID)
 	return scanPublicLink(row)
+}
+
+func (r *publicLinkRepository) ActiveItemIDs(ctx context.Context, itemIDs []int64, now time.Time) (map[int64]bool, error) {
+	active := make(map[int64]bool)
+	if len(itemIDs) == 0 {
+		return active, nil
+	}
+
+	placeholders := make([]string, len(itemIDs))
+	args := make([]any, 0, len(itemIDs)+1)
+	for i, itemID := range itemIDs {
+		placeholders[i] = "?"
+		args = append(args, itemID)
+	}
+	args = append(args, now.UTC())
+
+	query := fmt.Sprintf(`
+		SELECT item_id
+		FROM public_links
+		WHERE item_id IN (%s)
+		  AND (expires_at IS NULL OR expires_at > ?)`,
+		strings.Join(placeholders, ","),
+	)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite active public link item ids: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var itemID int64
+		if err := rows.Scan(&itemID); err != nil {
+			return nil, fmt.Errorf("sqlite active public link item id scan: %w", err)
+		}
+		active[itemID] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("sqlite active public link item ids rows: %w", err)
+	}
+
+	return active, nil
 }
 
 func (r *publicLinkRepository) DeleteForItem(ctx context.Context, itemID int64) error {

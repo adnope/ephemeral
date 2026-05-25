@@ -27,6 +27,32 @@
     Close
   </button>
 </div>
+{{end}} {{define "public_link_indicator"}}
+<span
+  class="public-link-indicator"
+  data-public-link-indicator
+  title="Public link active"
+  aria-label="Public link active"
+  {{if
+  not
+  .PublicLinkActive}}hidden{{end}}
+>
+  <svg
+    class="public-link-indicator-icon"
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+  >
+    <path
+      d="M10.6 13.4a1 1 0 0 1 0-1.4l2.8-2.8a1 1 0 0 1 1.4 1.4L12 13.4a1 1 0 0 1-1.4 0Z"
+    ></path>
+    <path
+      d="M8.5 17.5a4 4 0 0 1-2.8-6.8l2.8-2.8a4 4 0 0 1 5.7 0 1 1 0 1 1-1.4 1.4 2 2 0 0 0-2.8 0l-2.8 2.8a2 2 0 0 0 2.8 2.8 1 1 0 1 1 1.4 1.4 4 4 0 0 1-2.9 1.2Z"
+    ></path>
+    <path
+      d="M12.7 17.2a1 1 0 0 1-.7-1.7 2 2 0 0 0 2.8 0l2.8-2.8a2 2 0 0 0-2.8-2.8 1 1 0 1 1-1.4-1.4 4 4 0 0 1 5.7 5.7l-2.8 2.8a4 4 0 0 1-3.6 1.2Z"
+    ></path>
+  </svg>
+</span>
 {{end}} {{define "media_video_sources"}} {{if .Metadata.HLS}}
 <source src="{{fileURL .Metadata.HLS}}" type="application/vnd.apple.mpegurl" />
 {{end}} {{if .Metadata.Playback}}
@@ -347,6 +373,7 @@
         expires_at: link.expires_at,
       });
       setPublicShareTriggerLabel(itemID, "active");
+      setPublicShareIndicator(itemID, true);
       status.textContent =
         previousStatus === "active" ? "Link updated" : "Link ready";
     } catch (error) {
@@ -393,6 +420,7 @@
 
     renderPublicShareState({ status: "none" });
     setPublicShareTriggerLabel(itemID, "none");
+    setPublicShareIndicator(itemID, false);
     status.textContent = "Link revoked";
   };
 
@@ -416,6 +444,7 @@
       const link = await response.json();
       renderPublicShareState(link);
       setPublicShareTriggerLabel(itemID, link.status);
+      setPublicShareIndicator(itemID, link.status === "active");
     } catch (error) {
       console.error(error);
       status.textContent = "Could not load link.";
@@ -523,6 +552,19 @@
         state === "active" || state === "expired"
           ? "Manage link"
           : trigger.dataset.shareLabelDefault || "Share link";
+    });
+  }
+
+  function setPublicShareIndicator(itemID, active) {
+    document.querySelectorAll("[data-item-id]").forEach((item) => {
+      if (!(item instanceof HTMLElement)) return;
+      if (item.dataset.itemId !== String(itemID)) return;
+
+      item.querySelectorAll("[data-public-link-indicator]").forEach((icon) => {
+        if (icon instanceof HTMLElement) {
+          icon.hidden = !active;
+        }
+      });
     });
   }
 </script>

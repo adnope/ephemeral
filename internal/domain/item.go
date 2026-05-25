@@ -65,6 +65,7 @@ type PublicLinkRepository interface {
 	UpsertForItem(ctx context.Context, link *PublicLink) (*PublicLink, error)
 	GetByToken(ctx context.Context, token string) (*PublicLink, error)
 	GetForItem(ctx context.Context, itemID int64) (*PublicLink, error)
+	ActiveItemIDs(ctx context.Context, itemIDs []int64, now time.Time) (map[int64]bool, error)
 	DeleteForItem(ctx context.Context, itemID int64) error
 	DeleteByToken(ctx context.Context, token string) error
 }

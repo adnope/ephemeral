@@ -87,6 +87,72 @@ func TestPublicLinkRepositoryUpsertAndCascadeDelete(t *testing.T) {
 	}
 }
 
+func TestPublicLinkRepositoryActiveItemIDs(t *testing.T) {
+	db, err := OpenDB(t.TempDir()+"/ephemeral.db", loadTestMigrations(t))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	ctx := context.Background()
+	items := NewItemRepository(db)
+	links := NewPublicLinkRepository(db)
+
+	activeItemID := createPublicLinkTestItem(t, ctx, items, "active.txt")
+	expiredItemID := createPublicLinkTestItem(t, ctx, items, "expired.txt")
+	noneItemID := createPublicLinkTestItem(t, ctx, items, "none.txt")
+
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	activeExpiresAt := now.Add(time.Hour)
+	expiredAt := now.Add(-time.Second)
+
+	if _, err := links.UpsertForItem(ctx, &domain.PublicLink{
+		Token:     "active-token",
+		ItemID:    activeItemID,
+		ExpiresAt: &activeExpiresAt,
+	}); err != nil {
+		t.Fatalf("upsert active link: %v", err)
+	}
+	if _, err := links.UpsertForItem(ctx, &domain.PublicLink{
+		Token:     "expired-token",
+		ItemID:    expiredItemID,
+		ExpiresAt: &expiredAt,
+	}); err != nil {
+		t.Fatalf("upsert expired link: %v", err)
+	}
+
+	active, err := links.ActiveItemIDs(ctx, []int64{activeItemID, expiredItemID, noneItemID}, now)
+	if err != nil {
+		t.Fatalf("ActiveItemIDs(): %v", err)
+	}
+
+	if !active[activeItemID] {
+		t.Fatal("active item missing")
+	}
+	if active[expiredItemID] {
+		t.Fatal("expired item marked active")
+	}
+	if active[noneItemID] {
+		t.Fatal("unlinked item marked active")
+	}
+}
+
+func createPublicLinkTestItem(t *testing.T, ctx context.Context, items domain.ItemRepository, filename string) int64 {
+	t.Helper()
+
+	itemID, err := items.Create(ctx, &domain.Item{
+		Type:     domain.ItemTypeFile,
+		Content:  filename,
+		Filename: filename,
+		Filesize: 12,
+		Metadata: domain.Metadata{MIME: "text/plain"},
+	})
+	if err != nil {
+		t.Fatalf("create item %s: %v", filename, err)
+	}
+	return itemID
+}
+
 func loadTestMigrations(t *testing.T) string {
 	t.Helper()
 

@@ -67,6 +67,7 @@
   "item_video" .}} {{else}} {{template "item_file" .}} {{end}}
 
   <div class="bubble-footer">
+    {{template "public_link_indicator" .}}
     <time class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</time>
   </div>
 </div>

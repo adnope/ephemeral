@@ -212,6 +212,54 @@ func TestPublicLinkStatusClassifiesLinkState(t *testing.T) {
 	}
 }
 
+func TestActivePublicLinkItemIDsReturnsOnlyUnexpiredUploadedItems(t *testing.T) {
+	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
+	repo := newFakePublicLinkRepo()
+	repo.byToken["active-token"] = &domain.PublicLink{
+		Token:     "active-token",
+		ItemID:    9,
+		ExpiresAt: ptrTime(now.Add(time.Hour)),
+	}
+	repo.byItem[9] = "active-token"
+	repo.byToken["expired-token"] = &domain.PublicLink{
+		Token:     "expired-token",
+		ItemID:    10,
+		ExpiresAt: ptrTime(now.Add(-time.Second)),
+	}
+	repo.byItem[10] = "expired-token"
+	repo.byToken["text-token"] = &domain.PublicLink{
+		Token:  "text-token",
+		ItemID: 11,
+	}
+	repo.byItem[11] = "text-token"
+
+	uc := newPublicLinkTestUseCaseWithRepo(map[int64]*domain.Item{}, repo)
+	uc.now = func() time.Time { return now }
+
+	active, err := uc.ActivePublicLinkItemIDs(context.Background(), []*domain.Item{
+		{ID: 9, Type: domain.ItemTypeFile},
+		{ID: 10, Type: domain.ItemTypeFile},
+		{ID: 11, Type: domain.ItemTypeText},
+		{ID: 12, Type: domain.ItemTypeImage},
+	})
+	if err != nil {
+		t.Fatalf("ActivePublicLinkItemIDs(): %v", err)
+	}
+
+	if !active[9] {
+		t.Fatal("active item 9 missing")
+	}
+	if active[10] {
+		t.Fatal("expired item 10 marked active")
+	}
+	if active[11] {
+		t.Fatal("text item 11 marked active")
+	}
+	if active[12] {
+		t.Fatal("unlinked item 12 marked active")
+	}
+}
+
 func TestPublicSharedFileUsesPlaybackForDisplayAndOriginalForDownload(t *testing.T) {
 	repo := newFakePublicLinkRepo()
 	repo.byToken[testPublicToken] = &domain.PublicLink{
@@ -351,6 +399,22 @@ func (r *fakePublicLinkRepo) GetForItem(_ context.Context, itemID int64) (*domai
 		return nil, domain.ErrPublicLinkNotFound
 	}
 	return r.GetByToken(context.Background(), token)
+}
+
+func (r *fakePublicLinkRepo) ActiveItemIDs(_ context.Context, itemIDs []int64, now time.Time) (map[int64]bool, error) {
+	active := make(map[int64]bool)
+	for _, itemID := range itemIDs {
+		token := r.byItem[itemID]
+		if token == "" {
+			continue
+		}
+		link := r.byToken[token]
+		if link == nil || (link.ExpiresAt != nil && !now.UTC().Before(link.ExpiresAt.UTC())) {
+			continue
+		}
+		active[itemID] = true
+	}
+	return active, nil
 }
 
 func (r *fakePublicLinkRepo) DeleteForItem(_ context.Context, itemID int64) error {

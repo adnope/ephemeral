@@ -46,8 +46,15 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	items, err := h.itemTemplateData(r.Context(), result.Items)
+	if err != nil {
+		h.log.Error("history: public link state", "err", err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	data := map[string]any{
-		"Items":      result.Items,
+		"Items":      items,
 		"NextCursor": result.NextCursor,
 		"TypeFilter": strings.Join(result.Types, ","),
 		"Query":      result.Query,
@@ -103,8 +110,15 @@ func (h *Handler) SearchItems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	templateItems, err := h.itemTemplateData(r.Context(), items)
+	if err != nil {
+		h.log.Error("search: public link state", "err", err)
+		http.Error(w, "search failed", http.StatusInternalServerError)
+		return
+	}
+
 	data := map[string]any{
-		"Items": items,
+		"Items": templateItems,
 		"Query": query,
 	}
 

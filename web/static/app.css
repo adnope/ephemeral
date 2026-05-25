@@ -1044,6 +1044,36 @@ dialog::backdrop {
   margin-top: 0;
 }
 
+.public-link-indicator {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(0 102 204 / 20%);
+  border-radius: 50%;
+  background: var(--color-link-bg);
+  color: var(--color-link);
+}
+
+.public-link-indicator[hidden] {
+  display: none;
+}
+
+.public-link-indicator-icon {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
+
+.gallery-item > .public-link-indicator {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+}
+
 .bubble-send-status {
   color: var(--color-text-muted);
   font-size: 0.8em;
