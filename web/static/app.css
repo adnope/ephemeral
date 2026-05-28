@@ -1881,6 +1881,11 @@ dialog.text-viewer-dialog[open] {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
 }
 
+#chat-stream > .chat-bubble:first-child .bubble-action-menu {
+  top: auto;
+  bottom: 40px;
+}
+
 .bubble-menu-wrap.is-open .bubble-action-menu {
   display: block;
 }
