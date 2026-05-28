@@ -16,10 +16,11 @@
         class="chat-app"
         x-on:dragover.prevent="dragover = true"
         x-on:dragleave.prevent="dragover = false"
+        x-on:paste.window="handlePaste"
         x-on:drop.prevent="handleDrop"
       >
         <div x-show="dragover" class="drag-overlay" style="display: none">
-          Drop file here to upload
+          Drop files to attach
         </div>
 
         <header>
@@ -53,36 +54,99 @@
         </main>
 
         <footer>
-          <form x-on:submit.prevent="sendMessage" class="input-form">
-            <label class="composer-icon-btn" aria-label="Attach files">
-              <img src="/static/attachment.svg" alt="" class="composer-icon" />
-              <input
-                type="file"
-                multiple
-                x-on:change="handleFileSelect"
-                x-on:cancel="$el.blur()"
-                x-on:click="$el.blur()"
-                class="visually-hidden-file-input"
-              />
-            </label>
-
-            <textarea
-              x-ref="messageInput"
-              x-model="message"
-              placeholder="Type message..."
-              class="input-text composer-input"
-              x-on:input="resize($el)"
-              x-on:keydown.enter.prevent="handleMessageEnter($event, $el)"
-              rows="1"
-            ></textarea>
-
-            <button
-              type="submit"
-              class="composer-send-btn"
-              aria-label="Send message"
+          <form x-on:submit.prevent="sendMessage" class="composer-form">
+            <div
+              x-cloak
+              x-show="hasComposerAttachments"
+              class="composer-attachments"
+              aria-label="Selected attachments"
             >
-              &#10148;
-            </button>
+              <template
+                x-for="attachment in composerAttachments"
+                x-bind:key="attachment.id"
+              >
+                <article class="composer-attachment">
+                  <div class="composer-attachment-preview">
+                    <template x-if="attachment.kind === 'image'">
+                      <img
+                        x-bind:src="attachment.previewURL"
+                        x-bind:alt="attachment.name"
+                      />
+                    </template>
+
+                    <template x-if="attachment.kind === 'video'">
+                      <video
+                        x-bind:src="attachment.previewURL"
+                        muted
+                        playsinline
+                        preload="metadata"
+                      ></video>
+                    </template>
+
+                    <template x-if="attachment.kind === 'file'">
+                      <span x-text="fileBadgeLabel(attachment)"></span>
+                    </template>
+                  </div>
+
+                  <div class="composer-attachment-main">
+                    <div
+                      class="composer-attachment-name"
+                      x-text="attachment.name"
+                    ></div>
+                    <div
+                      class="composer-attachment-meta"
+                      x-text="formatBytes(attachment.size)"
+                    ></div>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="composer-attachment-remove"
+                    x-bind:aria-label="`Remove ${attachment.name}`"
+                    x-on:click="removeComposerAttachment(attachment.id)"
+                  >
+                    ×
+                  </button>
+                </article>
+              </template>
+            </div>
+
+            <div class="input-form">
+              <label class="composer-icon-btn" aria-label="Attach files">
+                <img
+                  src="/static/attachment.svg"
+                  alt=""
+                  class="composer-icon"
+                />
+                <input
+                  type="file"
+                  multiple
+                  x-on:change="handleFileSelect"
+                  x-on:cancel="$el.blur()"
+                  x-on:click="$el.blur()"
+                  class="visually-hidden-file-input"
+                />
+              </label>
+
+              <textarea
+                x-ref="messageInput"
+                x-model="message"
+                placeholder="Type message..."
+                class="input-text composer-input"
+                x-on:input="resize($el)"
+                x-on:keydown.enter.prevent="handleMessageEnter($event, $el)"
+                rows="1"
+              ></textarea>
+
+              <button
+                type="submit"
+                class="composer-send-btn"
+                aria-label="Send message"
+                x-bind:disabled="!canSend"
+              >
+                &#10148;
+              </button>
+            </div>
           </form>
         </footer>
       </div>
@@ -225,6 +289,8 @@
           dragover: false,
           message: "",
 
+          composerAttachments: [],
+          attachmentSeq: 0,
           uploads: [],
           uploadSeq: 0,
           activeUploads: 0,
@@ -238,6 +304,16 @@
 
           get hasUploads() {
             return this.uploads.length > 0;
+          },
+
+          get hasComposerAttachments() {
+            return this.composerAttachments.length > 0;
+          },
+
+          get canSend() {
+            return (
+              this.message.trim().length > 0 || this.hasComposerAttachments
+            );
           },
 
           get totalUploadBytes() {
@@ -381,14 +457,28 @@
             if (!dataTransfer || this.dropIncludesDirectory(dataTransfer))
               return;
 
-            this.enqueueFiles(dataTransfer.files);
+            this.stageFiles(
+              this.filesFromDataTransfer(dataTransfer),
+              "dropped",
+            );
+          },
+
+          handlePaste(event) {
+            const clipboardData = event.clipboardData;
+            if (!clipboardData) return;
+
+            const files = this.filesFromDataTransfer(clipboardData);
+            if (files.length === 0) return;
+
+            event.preventDefault();
+            this.stageFiles(files, "pasted");
           },
 
           handleFileSelect(e) {
             const input = e.target;
 
             try {
-              this.enqueueFiles(input.files);
+              this.stageFiles(input.files, "selected");
             } finally {
               input.value = "";
               input.blur();
@@ -405,18 +495,141 @@
             this.$nextTick(() => this.resize(textarea));
           },
 
-          enqueueFiles(fileList) {
-            const files = Array.from(fileList || []);
+          filesFromDataTransfer(dataTransfer) {
+            const files = Array.from(dataTransfer.files || []);
+            if (files.length > 0) return files;
+
+            return Array.from(dataTransfer.items || [])
+              .filter((item) => item.kind === "file")
+              .map((item) => item.getAsFile?.())
+              .filter((file) => file instanceof File);
+          },
+
+          stageFiles(fileList, source) {
+            const files = Array.from(fileList || []).filter(
+              (file) => file instanceof File,
+            );
             if (files.length === 0) return;
 
             for (const file of files) {
+              const id = ++this.attachmentSeq;
+              const kind = this.filePreviewKind(file);
+              const previewURL = this.createAttachmentPreviewURL(file, kind);
+
+              this.composerAttachments.push({
+                id,
+                file,
+                name: this.fileDisplayName(file, id, source),
+                size: file.size,
+                type: file.type || "application/octet-stream",
+                kind: previewURL ? kind : "file",
+                previewURL,
+              });
+            }
+
+            this.$nextTick(() => this.$refs.messageInput?.focus());
+          },
+
+          filePreviewKind(file) {
+            const type = (file.type || "").toLowerCase();
+            if (type.startsWith("image/")) return "image";
+            if (type.startsWith("video/")) return "video";
+            return "file";
+          },
+
+          createAttachmentPreviewURL(file, kind) {
+            if (kind === "file") return "";
+
+            try {
+              return URL.createObjectURL(file);
+            } catch {
+              return "";
+            }
+          },
+
+          fileDisplayName(file, id, source) {
+            const name = typeof file.name === "string" ? file.name.trim() : "";
+            if (name) return name;
+
+            const kind = this.filePreviewKind(file);
+            return `${source}-${kind}-${id}.${this.extensionForMime(file.type)}`;
+          },
+
+          extensionForMime(mime) {
+            const normalized = (mime || "").toLowerCase();
+            const knownExtensions = {
+              "application/pdf": "pdf",
+              "image/avif": "avif",
+              "image/gif": "gif",
+              "image/jpeg": "jpg",
+              "image/png": "png",
+              "image/webp": "webp",
+              "text/plain": "txt",
+              "video/mp4": "mp4",
+              "video/quicktime": "mov",
+              "video/webm": "webm",
+            };
+
+            if (knownExtensions[normalized]) return knownExtensions[normalized];
+
+            const subtype = normalized.split("/")[1];
+            const cleaned = subtype?.replace(/[^a-z0-9]+/g, "");
+            return cleaned || "bin";
+          },
+
+          fileBadgeLabel(attachment) {
+            const segments = attachment.name.split(".");
+            const extension = segments.length > 1 ? segments.pop().trim() : "";
+
+            if (extension && extension.length <= 5) {
+              return extension.toUpperCase();
+            }
+
+            if (attachment.type.startsWith("image/")) return "IMG";
+            if (attachment.type.startsWith("video/")) return "VID";
+            return "FILE";
+          },
+
+          removeComposerAttachment(id) {
+            const attachment = this.composerAttachments.find(
+              (candidate) => candidate.id === id,
+            );
+            if (attachment) this.revokeAttachmentPreview(attachment);
+
+            this.composerAttachments = this.composerAttachments.filter(
+              (candidate) => candidate.id !== id,
+            );
+          },
+
+          drainComposerAttachments() {
+            const attachments = this.composerAttachments;
+            this.composerAttachments = [];
+
+            for (const attachment of attachments) {
+              this.revokeAttachmentPreview(attachment);
+            }
+
+            return attachments;
+          },
+
+          revokeAttachmentPreview(attachment) {
+            if (!attachment.previewURL) return;
+
+            URL.revokeObjectURL(attachment.previewURL);
+            attachment.previewURL = "";
+          },
+
+          enqueueUploads(attachments) {
+            if (attachments.length === 0) return;
+
+            for (const attachment of attachments) {
               this.uploads.push({
                 id: ++this.uploadSeq,
-                file,
-                name: file.name,
-                size: file.size,
+                file: attachment.file,
+                name: attachment.name,
+                size: attachment.size,
                 loaded: 0,
-                total: file.size,
+                total: attachment.size,
                 progress: 0,
                 status: "queued",
                 error: "",
@@ -465,7 +678,7 @@
             this.activeUploads += 1;
 
             const form = new FormData();
-            form.append("file", upload.file);
+            form.append("file", upload.file, upload.name);
 
             const xhr = new XMLHttpRequest();
             upload.xhr = xhr;
@@ -488,7 +701,7 @@
                 upload.status = "done";
               } else {
                 upload.status = "failed";
-                upload.error = `Upload failed with HTTP ${xhr.status}`;
+                upload.error = this.uploadErrorMessage(xhr);
               }
 
               this.finishUpload(upload);
@@ -507,7 +720,29 @@
             };
 
             xhr.open("POST", "/api/upload");
+            xhr.setRequestHeader("Accept", "application/json");
             xhr.send(form);
+          },
+
+          uploadErrorMessage(xhr) {
+            const fallback = `Upload failed with HTTP ${xhr.status}`;
+            const body = xhr.responseText || "";
+            if (!body) return fallback;
+
+            try {
+              const parsed = JSON.parse(body);
+              if (
+                parsed &&
+                typeof parsed.message === "string" &&
+                parsed.message.trim()
+              ) {
+                return parsed.message;
+              }
+            } catch {
+              return fallback;
+            }
+
+            return fallback;
           },
 
           finishUpload(upload) {
@@ -585,7 +820,14 @@
 
           async sendMessage() {
             const text = this.message.trim();
-            if (!text) return;
+            if (!text && !this.hasComposerAttachments) return;
+
+            const attachments = this.drainComposerAttachments();
+
+            if (!text) {
+              this.enqueueUploads(attachments);
+              return;
+            }
 
             this.message = "";
             this.$nextTick(() => {
@@ -629,6 +871,8 @@
                   this.sendMessage();
                 });
               });
+            } finally {
+              this.enqueueUploads(attachments);
             }
           },
 
