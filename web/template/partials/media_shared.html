@@ -1015,6 +1015,7 @@
 
   const deleteConfirmState = {
     itemID: 0,
+    itemIDs: [],
     deleting: false,
     resolve: null,
   };
@@ -1053,6 +1054,44 @@
     });
   };
 
+  window.deleteItems = async function (ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return false;
+
+    const dialog = document.getElementById("deleteConfirmDialog");
+    if (!(dialog instanceof HTMLDialogElement)) {
+      console.error("missing delete confirmation dialog");
+      return false;
+    }
+
+    resetDeleteConfirmation();
+
+    // Customize dialog messages for bulk deletion
+    const titleEl = document.getElementById("deleteConfirmTitle");
+    const messageEl = document.getElementById("deleteConfirmMessage");
+    if (titleEl)
+      titleEl.textContent = ids.length === 1 ? "Delete item" : "Delete items";
+    if (messageEl) {
+      messageEl.textContent =
+        ids.length === 1
+          ? "This item will be deleted permanently."
+          : `These ${ids.length} items will be deleted permanently.`;
+    }
+
+    return new Promise((resolve) => {
+      deleteConfirmState.itemIDs = ids;
+      deleteConfirmState.resolve = resolve;
+
+      if (!dialog.open) dialog.showModal();
+
+      requestAnimationFrame(() => {
+        const confirmButton = document.getElementById("deleteConfirmConfirm");
+        if (confirmButton instanceof HTMLButtonElement) {
+          confirmButton.focus({ preventScroll: true });
+        }
+      });
+    });
+  };
+
   window.cancelDeleteConfirmation = function () {
     if (deleteConfirmState.deleting) return;
     closeDeleteConfirmation(false);
@@ -1061,8 +1100,14 @@
   window.confirmDeleteItem = async function () {
     if (deleteConfirmState.deleting) return;
 
-    const id = deleteConfirmState.itemID;
-    if (!Number.isFinite(id) || id <= 0) {
+    const ids =
+      deleteConfirmState.itemIDs.length > 0
+        ? deleteConfirmState.itemIDs
+        : deleteConfirmState.itemID > 0
+          ? [deleteConfirmState.itemID]
+          : [];
+
+    if (ids.length === 0) {
       closeDeleteConfirmation(false);
       return;
     }
@@ -1079,17 +1124,30 @@
     });
 
     closeDeleteConfirmation(true);
-    window.removeItemFromDOM(id);
+    ids.forEach((id) => window.removeItemFromDOM(id));
 
     try {
-      const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
-      });
+      await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const response = await fetch(
+              `/api/items/${encodeURIComponent(id)}`,
+              {
+                method: "DELETE",
+                headers: { Accept: "application/json" },
+              },
+            );
 
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`delete failed: HTTP ${response.status}`);
-      }
+            if (!response.ok && response.status !== 404) {
+              throw new Error(
+                `delete failed for ${id}: HTTP ${response.status}`,
+              );
+            }
+          } catch (error) {
+            console.error(error);
+          }
+        }),
+      );
     } catch (error) {
       console.error(error);
     }
@@ -1104,15 +1162,60 @@
     void window.deleteItem(id);
   };
 
+  window.downloadSelectedItems = async function (ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+
+    for (const id of ids) {
+      const itemEl =
+        document.getElementById(`item-${id}`) ||
+        document.getElementById(`history-item-${id}`);
+      if (!itemEl) continue;
+
+      const type = itemEl.dataset.itemType;
+      if (type === "text") {
+        const text = itemEl.dataset.textContent || "";
+        const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `message_${id}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } else {
+        const downloadUrl = itemEl.dataset.downloadUrl;
+        const filename = itemEl.dataset.filename || "download";
+        if (downloadUrl) {
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      }
+      // Small delay between downloads to prevent browser throttling
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+  };
+
   function resetDeleteConfirmation() {
     setDeleteConfirmButtonLabel("Delete");
     setDeleteConfirmControlsDisabled(false);
+
+    const titleEl = document.getElementById("deleteConfirmTitle");
+    const messageEl = document.getElementById("deleteConfirmMessage");
+    if (titleEl) titleEl.textContent = "Delete item";
+    if (messageEl)
+      messageEl.textContent = "This item will be deleted permanently.";
 
     if (deleteConfirmState.resolve) {
       deleteConfirmState.resolve(false);
     }
 
     deleteConfirmState.itemID = 0;
+    deleteConfirmState.itemIDs = [];
     deleteConfirmState.deleting = false;
     deleteConfirmState.resolve = null;
   }
@@ -1122,6 +1225,7 @@
     const resolve = deleteConfirmState.resolve;
 
     deleteConfirmState.itemID = 0;
+    deleteConfirmState.itemIDs = [];
     deleteConfirmState.deleting = false;
     deleteConfirmState.resolve = null;
     setDeleteConfirmControlsDisabled(false);
