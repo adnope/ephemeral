@@ -272,6 +272,31 @@
           </div>
         </div>
       </section>
+
+      <section
+        x-cloak
+        x-show="composerErrorMessage"
+        class="composer-error-dialog"
+        role="alert"
+        aria-live="assertive"
+      >
+        <div class="composer-error-main">
+          <div class="composer-error-title">Folder not supported</div>
+          <div
+            class="composer-error-message"
+            x-text="composerErrorMessage"
+          ></div>
+        </div>
+
+        <button
+          type="button"
+          class="composer-error-close"
+          aria-label="Dismiss error"
+          x-on:click="dismissComposerError"
+        >
+          ×
+        </button>
+      </section>
     </div>
 
     {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
@@ -289,6 +314,8 @@
           dragover: false,
           message: "",
 
+          composerErrorMessage: "",
+          composerErrorTimer: 0,
           composerAttachments: [],
           attachmentSeq: 0,
           uploads: [],
@@ -454,8 +481,12 @@
           handleDrop(e) {
             this.dragover = false;
             const dataTransfer = e.dataTransfer;
-            if (!dataTransfer || this.dropIncludesDirectory(dataTransfer))
+            if (!dataTransfer) return;
+
+            if (this.dropIncludesDirectory(dataTransfer)) {
+              this.showFolderAttachmentError();
               return;
+            }
 
             this.stageFiles(
               this.filesFromDataTransfer(dataTransfer),
@@ -478,6 +509,11 @@
             const input = e.target;
 
             try {
+              if (this.fileListIncludesDirectory(input.files)) {
+                this.showFolderAttachmentError();
+                return;
+              }
+
               this.stageFiles(input.files, "selected");
             } finally {
               input.value = "";
@@ -493,6 +529,27 @@
 
             this.message += "\n";
             this.$nextTick(() => this.resize(textarea));
+          },
+
+          showFolderAttachmentError() {
+            this.showComposerError(
+              "Folders cannot be attached. Select files instead.",
+            );
+          },
+
+          showComposerError(message) {
+            window.clearTimeout(this.composerErrorTimer);
+            this.composerErrorMessage = message;
+            this.composerErrorTimer = window.setTimeout(() => {
+              this.composerErrorMessage = "";
+              this.composerErrorTimer = 0;
+            }, 4200);
+          },
+
+          dismissComposerError() {
+            window.clearTimeout(this.composerErrorTimer);
+            this.composerErrorMessage = "";
+            this.composerErrorTimer = 0;
           },
 
           filesFromDataTransfer(dataTransfer) {
@@ -642,9 +699,27 @@
           },
 
           dropIncludesDirectory(dataTransfer) {
-            return Array.from(dataTransfer.items || []).some((item) =>
-              this.isDirectoryDropItem(item),
+            const items = Array.from(dataTransfer.items || []);
+            if (items.some((item) => this.isDirectoryDropItem(item))) {
+              return true;
+            }
+
+            return this.fileListIncludesDirectory(dataTransfer.files);
+          },
+
+          fileListIncludesDirectory(fileList) {
+            return Array.from(fileList || []).some((file) =>
+              this.isDirectoryFileSelection(file),
             );
+          },
+
+          isDirectoryFileSelection(file) {
+            const relativePath =
+              typeof file.webkitRelativePath === "string"
+                ? file.webkitRelativePath
+                : "";
+
+            return relativePath.includes("/");
           },
 
           isDirectoryDropItem(item) {

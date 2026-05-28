@@ -1045,9 +1045,9 @@
       if (!dialog.open) dialog.showModal();
 
       requestAnimationFrame(() => {
-        const cancelButton = document.getElementById("deleteConfirmCancel");
-        if (cancelButton instanceof HTMLButtonElement) {
-          cancelButton.focus({ preventScroll: true });
+        const confirmButton = document.getElementById("deleteConfirmConfirm");
+        if (confirmButton instanceof HTMLButtonElement) {
+          confirmButton.focus({ preventScroll: true });
         }
       });
     });
@@ -1067,9 +1067,7 @@
       return;
     }
 
-    setDeleteConfirmControlsDisabled(true);
     deleteConfirmState.deleting = true;
-    setDeleteConfirmButtonLabel("Deleting...");
 
     document.querySelectorAll("dialog[open]").forEach((dialog) => {
       if (
@@ -1080,6 +1078,9 @@
       }
     });
 
+    closeDeleteConfirmation(true);
+    window.removeItemFromDOM(id);
+
     try {
       const response = await fetch(`/api/items/${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -1089,20 +1090,8 @@
       if (!response.ok && response.status !== 404) {
         throw new Error(`delete failed: HTTP ${response.status}`);
       }
-
-      window.removeItemFromDOM(id);
-      closeDeleteConfirmation(true);
     } catch (error) {
       console.error(error);
-      deleteConfirmState.deleting = false;
-      setDeleteConfirmControlsDisabled(false);
-      setDeleteConfirmButtonLabel("Could not delete");
-
-      window.setTimeout(() => {
-        if (!deleteConfirmState.deleting) {
-          setDeleteConfirmButtonLabel("Delete");
-        }
-      }, 1600);
     }
   };
 
@@ -1170,6 +1159,19 @@
     dialog.addEventListener("cancel", (event) => {
       event.preventDefault();
       window.cancelDeleteConfirmation();
+    });
+
+    dialog.addEventListener("keydown", (event) => {
+      if (
+        event.key !== "Enter" ||
+        event.defaultPrevented ||
+        event.isComposing
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      void window.confirmDeleteItem();
     });
 
     dialog.addEventListener("close", () => {
