@@ -231,6 +231,17 @@ func (uc *ItemUseCase) UploadFile(ctx context.Context, filename string, reader i
 	return item, nil
 }
 
+func (uc *ItemUseCase) GetItem(ctx context.Context, id int64) (*domain.Item, error) {
+	if id <= 0 {
+		return nil, fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
+	}
+	item, err := uc.items.GetByID(ctx, id)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	return item, nil
+}
+
 func (uc *ItemUseCase) DeleteItem(ctx context.Context, id int64) error {
 	if id <= 0 {
 		return fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
