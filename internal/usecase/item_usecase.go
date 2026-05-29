@@ -247,6 +247,8 @@ func (uc *ItemUseCase) DeleteItem(ctx context.Context, id int64) error {
 		return fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
 	}
 
+	uc.media.CancelJob(id)
+
 	item, err := uc.items.GetByID(ctx, id)
 	if err != nil {
 		return ErrNotFound

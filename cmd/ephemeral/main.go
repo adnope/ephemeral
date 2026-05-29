@@ -66,7 +66,7 @@ func main() {
 
 	uploadStorage := filesystem.NewUploadStorage(cfg.DataDir)
 	mediaClassifier := media.NewClassifier()
-	mediaPool, err := media.NewPool(itemRepo, broker, media.PoolOptions{
+	mediaPool, err := media.NewPool(itemRepo, broker, uploadStorage, media.PoolOptions{
 		WorkerCount:    cfg.MediaWorkerCount,
 		ProcessTimeout: cfg.MediaProcessTimeout,
 		HLSMinBytes:    cfg.HLSMinBytes,
