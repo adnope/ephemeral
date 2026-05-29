@@ -108,6 +108,7 @@ header h1 {
   margin: 0;
   padding: 20px;
   overflow-y: auto;
+  position: relative;
 }
 
 #chat-stream {
@@ -655,9 +656,101 @@ dialog::backdrop {
   pointer-events: none;
 }
 
+.composer-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
 .input-form {
   align-items: center;
   gap: 8px;
+}
+
+.composer-attachments {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 8px;
+  max-height: 178px;
+  overflow-y: auto;
+  padding: 1px;
+}
+
+.composer-attachment {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 26px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #d0d7de;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.composer-attachment-preview {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: #eaeef2;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.composer-attachment-preview img,
+.composer-attachment-preview video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.composer-attachment-main {
+  min-width: 0;
+}
+
+.composer-attachment-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attachment-meta {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: 0.85em;
+}
+
+.composer-attachment-remove {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.composer-attachment-remove:hover,
+.composer-attachment-remove:focus-visible {
+  background: rgb(214 53 64 / 10%);
+  color: #a40e26;
+  outline: none;
 }
 
 .composer-icon-btn,
@@ -762,6 +855,16 @@ dialog::backdrop {
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.22);
 }
 
+.composer-send-btn:disabled,
+.composer-send-btn:disabled:hover {
+  border-color: #d0d7de;
+  background: #d0d7de;
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .visually-hidden-file-input {
   position: absolute;
   width: 1px;
@@ -795,6 +898,62 @@ dialog::backdrop {
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.composer-error-dialog {
+  position: fixed;
+  right: 12px;
+  bottom: 20px;
+  z-index: 40;
+  width: min(330px, calc(100vw - 24px));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-danger-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+
+.composer-error-main {
+  min-width: 0;
+}
+
+.composer-error-title {
+  color: var(--color-danger-bg);
+  font-weight: 700;
+}
+
+.composer-error-message {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+.composer-error-close {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  flex: 0 0 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.composer-error-close:hover,
+.composer-error-close:focus-visible {
+  background: rgb(214 53 64 / 10%);
+  color: #a40e26;
+  outline: none;
 }
 
 .upload-queue-close {
@@ -980,6 +1139,19 @@ dialog::backdrop {
 
   .upload-queue-body {
     max-height: min(360px, 45vh);
+  }
+
+  .composer-error-dialog {
+    right: 10px;
+    bottom: 20px;
+    left: 10px;
+    width: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .composer-attachments {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1708,6 +1880,11 @@ dialog.text-viewer-dialog[open] {
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+#chat-stream > .chat-bubble:first-child .bubble-action-menu {
+  top: auto;
+  bottom: 40px;
 }
 
 .bubble-menu-wrap.is-open .bubble-action-menu {
@@ -2449,4 +2626,169 @@ dialog.delete-confirm-dialog .btn:disabled {
   background: rgb(0 102 204 / 10%);
   color: var(--color-link);
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.12);
+}
+
+/* Multi-Select Mode Styles */
+.multi-select-active .chat-bubble,
+.multi-select-active .gallery-item {
+  cursor: pointer;
+}
+
+.multi-select-active .chat-bubble *,
+.multi-select-active .gallery-item * {
+  pointer-events: none;
+}
+
+.multi-select-active .bubble-menu-wrap {
+  display: none !important;
+}
+
+.item-checkbox-container {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: none;
+  z-index: 10;
+}
+
+.multi-select-active .item-checkbox-container {
+  display: block;
+}
+
+.item-checkbox-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #888;
+  background-color: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.is-selected .item-checkbox-circle {
+  border-color: #0066cc;
+  background-color: #0066cc;
+}
+
+.is-selected .item-checkbox-circle::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-0.5px, -1.5px);
+  display: block;
+}
+
+.chat-bubble.is-selected {
+  border-color: #0066cc !important;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15) !important;
+  background-color: #e6f0ff !important;
+}
+
+.gallery-item.is-selected {
+  border-color: #0066cc !important;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.15) !important;
+}
+
+.multi-select-active .chat-bubble {
+  padding-left: 32px !important;
+}
+
+.multi-select-active .gallery-item .item-checkbox-container {
+  top: 6px;
+  left: 6px;
+}
+
+.multi-select-toolbar {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  transform: translateY(150%);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.multi-select-toolbar.is-visible {
+  transform: translateY(0);
+}
+
+.multi-select-info {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.multi-select-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.multi-select-actions .btn {
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.multi-select-actions .btn-secondary {
+  background: transparent;
+  border: 1.5px solid var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.multi-select-actions .btn-secondary:hover {
+  background: var(--color-hover);
+}
+
+.multi-select-actions .btn-danger {
+  background: var(--color-danger-bg);
+  border: 1.5px solid var(--color-danger-border);
+  color: white;
+}
+
+.multi-select-actions .btn-danger:hover {
+  background: #a40e26;
+  border-color: #a40e26;
+  box-shadow: 0 2px 8px rgba(164, 14, 38, 0.2);
+}
+
+.multi-select-actions .btn-primary {
+  background: var(--color-link);
+  border: 1.5px solid var(--color-link);
+  color: white;
+}
+
+.multi-select-actions .btn-primary:hover {
+  background: #005bb8;
+  border-color: #005bb8;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+}
+
+.selection-box {
+  position: absolute;
+  border: 1.5px solid #0066cc;
+  background-color: rgba(0, 102, 204, 0.15);
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 4px;
 }

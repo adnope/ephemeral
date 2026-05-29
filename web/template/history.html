@@ -11,13 +11,30 @@
     <link rel="manifest" href="/static/manifest.json" />
   </head>
   <body>
-    <div class="chat-app">
+    <div
+      class="chat-app"
+      x-data="ephemeralHistory()"
+      x-bind:class="{ 'multi-select-active': multiSelectActive }"
+    >
       <header>
         <h1>Ephemeral</h1>
         <nav class="top-nav" aria-label="Primary navigation">
           <div class="top-nav-links">
             <a href="/" class="top-nav-link">Chat</a>
-            <a href="/history" class="top-nav-link is-active">History</a>
+            <a
+              href="/history"
+              class="top-nav-link is-active"
+              x-bind:class="{ 'is-active': !multiSelectActive }"
+              >History</a
+            >
+            <a
+              href="#"
+              class="top-nav-link"
+              x-bind:class="{ 'is-active': multiSelectActive }"
+              @click.prevent="toggleMultiSelect()"
+            >
+              <span x-text="multiSelectActive ? 'Cancel' : 'Select'"></span>
+            </a>
           </div>
 
           <form method="POST" action="/api/logout" class="top-nav-logout">
@@ -165,10 +182,56 @@
           </a>
         </nav>
 
-        <div id="gallery-grid" class="gallery-grid">
+        <div
+          id="gallery-grid"
+          class="gallery-grid"
+          @mousedown="handleMouseDown"
+        >
           {{template "history_items" .}}
         </div>
       </main>
+      <!-- Floating Actions Toolbar -->
+      <div
+        class="multi-select-toolbar"
+        x-bind:class="{ 'is-visible': multiSelectActive && selectedIds.length > 0 }"
+      >
+        <div class="multi-select-info">
+          <span x-text="`${selectedIds.length} selected`"></span>
+        </div>
+        <div class="multi-select-actions">
+          <button type="button" class="btn btn-secondary" @click="selectAll()">
+            Select All
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="clearSelection()"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn-primary"
+            @click="downloadSelected()"
+          >
+            Download
+          </button>
+          <button
+            type="button"
+            class="btn btn-danger"
+            @click="deleteSelected()"
+          >
+            Delete
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="toggleMultiSelect()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
 
     {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
@@ -206,6 +269,204 @@
           refreshHistory();
         });
       });
+
+      function ephemeralHistory() {
+        return {
+          multiSelectActive: false,
+          selectedIds: [],
+
+          init() {
+            document.addEventListener("mousedown", (event) => {
+              if (!this.multiSelectActive) return;
+              if (this.selectedIds.length === 0) return;
+
+              const target = event.target;
+              if (
+                !target.closest("[data-item-id]") &&
+                !target.closest(".multi-select-toolbar") &&
+                !target.closest(".top-nav-link") &&
+                !target.closest("dialog")
+              ) {
+                this.clearSelection();
+              }
+            });
+          },
+
+          toggleMultiSelect() {
+            this.multiSelectActive = !this.multiSelectActive;
+            if (!this.multiSelectActive) {
+              this.clearSelection();
+            }
+          },
+
+          toggleItemSelection(id) {
+            if (this.selectedIds.includes(id)) {
+              this.selectedIds = this.selectedIds.filter((x) => x !== id);
+              const el = document.getElementById(`history-item-${id}`);
+              if (el) el.classList.remove("is-selected");
+            } else {
+              this.selectedIds.push(id);
+              const el = document.getElementById(`history-item-${id}`);
+              if (el) el.classList.add("is-selected");
+            }
+          },
+
+          clearSelection() {
+            this.selectedIds.forEach((id) => {
+              const el = document.getElementById(`history-item-${id}`);
+              if (el) el.classList.remove("is-selected");
+            });
+            this.selectedIds = [];
+          },
+
+          selectAll() {
+            const ids = [];
+            document
+              .querySelectorAll("#gallery-grid [data-item-id]")
+              .forEach((el) => {
+                const id = Number.parseInt(el.dataset.itemId, 10);
+                if (Number.isFinite(id)) {
+                  ids.push(id);
+                  el.classList.add("is-selected");
+                }
+              });
+            this.selectedIds = ids;
+          },
+
+          async deleteSelected() {
+            if (this.selectedIds.length === 0) return;
+            const ids = [...this.selectedIds];
+            const deleted = await window.deleteItems(ids);
+            if (deleted) {
+              this.clearSelection();
+              this.multiSelectActive = false;
+            }
+          },
+
+          async downloadSelected() {
+            if (this.selectedIds.length === 0) return;
+            const ids = [...this.selectedIds];
+            this.clearSelection();
+            this.multiSelectActive = false;
+            void window.downloadSelectedItems(ids);
+          },
+
+          handleMouseDown(event) {
+            if (!this.multiSelectActive) return;
+            if (event.button !== 0) return;
+
+            const target = event.target;
+            if (target.closest("a, button, input, select, textarea, dialog")) {
+              return;
+            }
+
+            event.preventDefault();
+
+            const container = document.querySelector(".history-main");
+            const rect = container.getBoundingClientRect();
+
+            const startX = event.clientX - rect.left + container.scrollLeft;
+            const startY = event.clientY - rect.top + container.scrollTop;
+
+            const selectionBox = document.createElement("div");
+            selectionBox.className = "selection-box";
+            selectionBox.style.left = `${startX}px`;
+            selectionBox.style.top = `${startY}px`;
+            selectionBox.style.width = "0px";
+            selectionBox.style.height = "0px";
+            container.appendChild(selectionBox);
+
+            let lastMouseX = event.clientX;
+            let lastMouseY = event.clientY;
+            let hasDragged = false;
+
+            const updateSelection = () => {
+              const currentX = lastMouseX - rect.left + container.scrollLeft;
+              const currentY = lastMouseY - rect.top + container.scrollTop;
+
+              const left = Math.min(startX, currentX);
+              const top = Math.min(startY, currentY);
+              const width = Math.abs(startX - currentX);
+              const height = Math.abs(startY - currentY);
+
+              selectionBox.style.left = `${left}px`;
+              selectionBox.style.top = `${top}px`;
+              selectionBox.style.width = `${width}px`;
+              selectionBox.style.height = `${height}px`;
+
+              if (width > 4 || height > 4) {
+                hasDragged = true;
+              }
+
+              if (hasDragged) {
+                const items = container.querySelectorAll("[data-item-id]");
+                const newSelection = [];
+
+                items.forEach((item) => {
+                  const itemRect = item.getBoundingClientRect();
+                  const itemLeft =
+                    itemRect.left - rect.left + container.scrollLeft;
+                  const itemTop = itemRect.top - rect.top + container.scrollTop;
+                  const itemRight =
+                    itemRect.right - rect.left + container.scrollLeft;
+                  const itemBottom =
+                    itemRect.bottom - rect.top + container.scrollTop;
+
+                  const overlaps = !(
+                    left > itemRight ||
+                    left + width < itemLeft ||
+                    top > itemBottom ||
+                    top + height < itemTop
+                  );
+                  const id = Number.parseInt(item.dataset.itemId, 10);
+
+                  if (overlaps) {
+                    newSelection.push(id);
+                    item.classList.add("is-selected");
+                  } else {
+                    item.classList.remove("is-selected");
+                  }
+                });
+
+                this.selectedIds = newSelection;
+              }
+            };
+
+            const onMouseMove = (e) => {
+              lastMouseX = e.clientX;
+              lastMouseY = e.clientY;
+              updateSelection();
+            };
+
+            const onScroll = () => {
+              updateSelection();
+            };
+
+            const onMouseUp = () => {
+              document.removeEventListener("mousemove", onMouseMove);
+              document.removeEventListener("mouseup", onMouseUp);
+              container.removeEventListener("scroll", onScroll);
+              if (selectionBox.parentNode) {
+                selectionBox.parentNode.removeChild(selectionBox);
+              }
+
+              if (!hasDragged) {
+                const clickedItem = event.target.closest("[data-item-id]");
+                if (clickedItem) {
+                  const id = Number.parseInt(clickedItem.dataset.itemId, 10);
+                  if (Number.isFinite(id)) {
+                    this.toggleItemSelection(id);
+                  }
+                }
+              }
+            };
+
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+            container.addEventListener("scroll", onScroll);
+          },
+        };
+      }
     </script>
   </body>
 </html>
@@ -214,8 +475,16 @@
   class="gallery-item"
   id="history-item-{{.ID}}"
   data-item-id="{{.ID}}"
+  data-item-type="{{.Type}}"
+  data-filename="{{.Filename}}"
+  data-download-url="{{if ne .Type `text`}}{{fileURL .Content}}{{end}}"
+  data-text-content="{{if eq .Type `text`}}{{.Content}}{{end}}"
+  x-bind:class="{ 'is-selected': selectedIds.includes({{.ID}}) }"
   x-data
 >
+  <div class="item-checkbox-container">
+    <span class="item-checkbox-circle"></span>
+  </div>
   {{template "public_link_indicator" .}} {{if eq .Type "image"}}
   <dialog
     x-ref="histImgDialog_{{.ID}}"

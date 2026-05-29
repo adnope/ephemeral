@@ -15,7 +15,16 @@
   class="chat-bubble{{if eq .Type `video`}} chat-bubble--video{{end}}"
   id="item-{{.ID}}"
   data-item-id="{{.ID}}"
+  data-item-type="{{.Type}}"
+  data-filename="{{.Filename}}"
+  data-download-url="{{if ne .Type `text`}}{{fileURL .Content}}{{end}}"
+  data-text-content="{{if eq .Type `text`}}{{.Content}}{{end}}"
+  x-bind:class="{ 'is-selected': selectedIds.includes({{.ID}}) }"
 >
+  <div class="item-checkbox-container">
+    <span class="item-checkbox-circle"></span>
+  </div>
+
   <div class="bubble-menu-wrap">
     <button
       type="button"

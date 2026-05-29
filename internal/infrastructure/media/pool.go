@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -15,8 +16,12 @@ type Pool struct {
 	jobs    chan domain.MediaJob
 	repo    domain.ItemRepository
 	broker  domain.EventBroker
+	storage domain.UploadStorage
 	options PoolOptions
 	wg      sync.WaitGroup
+
+	mu         sync.Mutex
+	activeJobs map[int64]context.CancelFunc
 }
 
 type PoolOptions struct {
@@ -26,7 +31,7 @@ type PoolOptions struct {
 	HLSMinDuration time.Duration
 }
 
-func NewPool(repo domain.ItemRepository, broker domain.EventBroker, options PoolOptions) (*Pool, error) {
+func NewPool(repo domain.ItemRepository, broker domain.EventBroker, storage domain.UploadStorage, options PoolOptions) (*Pool, error) {
 	if options.WorkerCount <= 0 {
 		return nil, fmt.Errorf("media worker count must be positive")
 	}
@@ -41,10 +46,12 @@ func NewPool(repo domain.ItemRepository, broker domain.EventBroker, options Pool
 	}
 
 	pool := &Pool{
-		jobs:    make(chan domain.MediaJob, 16),
-		repo:    repo,
-		broker:  broker,
-		options: options,
+		jobs:       make(chan domain.MediaJob, 16),
+		repo:       repo,
+		broker:     broker,
+		storage:    storage,
+		options:    options,
+		activeJobs: make(map[int64]context.CancelFunc),
 	}
 	pool.wg.Add(options.WorkerCount)
 	for i := 0; i < options.WorkerCount; i++ {
@@ -58,6 +65,14 @@ func (p *Pool) Enqueue(job domain.MediaJob) {
 	case p.jobs <- job:
 	default:
 		slog.Warn("media queue full, dropping job", "item_id", job.ItemID)
+	}
+}
+
+func (p *Pool) CancelJob(itemID int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if cancel, exists := p.activeJobs[itemID]; exists {
+		cancel()
 	}
 }
 
@@ -87,9 +102,37 @@ func (p *Pool) worker() {
 	}
 }
 
-func (p *Pool) process(job domain.MediaJob) error {
+func (p *Pool) process(job domain.MediaJob) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), p.options.ProcessTimeout)
 	defer cancel()
+
+	p.mu.Lock()
+	p.activeJobs[job.ItemID] = cancel
+	p.mu.Unlock()
+
+	defer func() {
+		p.mu.Lock()
+		delete(p.activeJobs, job.ItemID)
+		p.mu.Unlock()
+	}()
+
+	var generatedFiles []string
+	var generatedDirs []string
+
+	defer func() {
+		if err != nil {
+			for _, path := range generatedFiles {
+				if removeErr := p.storage.Remove(path); removeErr != nil {
+					slog.Warn("cleanup: failed to remove file", "path", path, "err", removeErr)
+				}
+			}
+			for _, dir := range generatedDirs {
+				if removeErr := p.storage.RemoveTree(dir); removeErr != nil {
+					slog.Warn("cleanup: failed to remove directory tree", "dir", dir, "err", removeErr)
+				}
+			}
+		}
+	}()
 
 	meta := domain.Metadata{MIME: job.MIMEType}
 
@@ -103,14 +146,21 @@ func (p *Pool) process(job domain.MediaJob) error {
 
 		thumbRelPath, err := generateImageThumbnail(ctx, job.FilePath)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			slog.Warn("image thumbnail generation skipped", "path", job.FilePath, "err", err)
 			break
 		}
 		meta.Thumb = thumbRelPath
+		generatedFiles = append(generatedFiles, thumbRelPath)
 
 	case strings.HasPrefix(job.MIMEType, "video/"):
 		videoInfo, err := extractVideoInfo(ctx, job.FilePath, job.MIMEType)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			slog.Warn("video metadata extraction skipped", "path", job.FilePath, "err", err)
 			break
 		}
@@ -118,26 +168,44 @@ func (p *Pool) process(job domain.MediaJob) error {
 
 		thumbRelPath, err := generateThumbnail(ctx, job.FilePath)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			slog.Warn("thumbnail generation skipped", "path", job.FilePath, "err", err)
 		} else {
 			meta.Thumb = thumbRelPath
+			generatedFiles = append(generatedFiles, thumbRelPath)
 		}
 
 		playback, err := generateBrowserPlayback(ctx, job.FilePath, videoInfo)
 		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			slog.Warn("video playback copy generation skipped", "path", job.FilePath, "err", err)
 			break
 		}
 		meta.Playback = playback.RelPath
 		meta.PlaybackMIME = playback.MIME
+		generatedFiles = append(generatedFiles, playback.RelPath)
 
 		if shouldGenerateHLS(job.Size, videoInfo.Duration, p.options) {
 			hls, err := generateHLS(ctx, job.FilePath, playback.AbsPath)
 			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
 				slog.Warn("hls generation skipped", "path", job.FilePath, "err", err)
 				break
 			}
 			meta.HLS = hls.RelPath
+			cleanPath := filepath.ToSlash(filepath.Clean(hls.RelPath))
+			if cleanPath != "." && strings.HasPrefix(cleanPath, "hls/") {
+				dir := filepath.Dir(cleanPath)
+				if dir != "." && dir != "hls" {
+					generatedDirs = append(generatedDirs, dir)
+				}
+			}
 		}
 	}
 

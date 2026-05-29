@@ -466,6 +466,40 @@ Generated HLS files use these response content types:
 
 ---
 
+### `GET /api/items/download-zip`
+
+Streams a single compressed ZIP file containing all selected items.
+
+**Auth**
+
+Requires `session_token`.
+
+**Query params**
+
+| Param | Type   | Required | Description                                                    |
+| ----- | ------ | -------: | -------------------------------------------------------------- |
+| `ids` | string |      yes | Comma-separated list of item database IDs (e.g. `ids=1,2,3,4`) |
+
+**Response**
+
+Returns a ZIP file containing the selected items with `Content-Type: application/zip` and `Content-Disposition: attachment; filename="ephemeral_download.zip"`.
+
+- **Text items**: Packaged dynamically as virtual files named `message_{id}.txt`.
+- **Binary items** (`image`, `video`, `file`): Serves their original uploaded data.
+- **Name conflict resolution**: Duplicate filenames inside the ZIP archive are automatically deduplicated (e.g., `photo.png` and `photo (1).png`).
+- Non-existent or inaccessible IDs are skipped dynamically.
+
+**Status codes**
+
+|  Code | Meaning                              |
+| ----: | ------------------------------------ |
+| `200` | ZIP file stream initiated            |
+| `400` | Missing or invalid `ids` parameter   |
+| `404` | No valid items found to download     |
+| `500` | Failed to package or retrieve items  |
+
+---
+
 ### `GET /api/items/{id}/public-link`
 
 Returns the current public-link state for one uploaded item.

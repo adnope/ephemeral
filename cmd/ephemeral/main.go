@@ -66,7 +66,7 @@ func main() {
 
 	uploadStorage := filesystem.NewUploadStorage(cfg.DataDir)
 	mediaClassifier := media.NewClassifier()
-	mediaPool, err := media.NewPool(itemRepo, broker, media.PoolOptions{
+	mediaPool, err := media.NewPool(itemRepo, broker, uploadStorage, media.PoolOptions{
 		WorkerCount:    cfg.MediaWorkerCount,
 		ProcessTimeout: cfg.MediaProcessTimeout,
 		HLSMinBytes:    cfg.HLSMinBytes,
@@ -144,6 +144,7 @@ func main() {
 	r.Get("/api/config", h.Config)
 	r.Get("/api/events", h.Events)
 	r.Get("/api/items", h.Items)
+	r.Get("/api/items/download-zip", h.DownloadZip)
 	r.Get("/api/history", h.HistoryAPI)
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)

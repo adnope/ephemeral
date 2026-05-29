@@ -88,6 +88,7 @@ type MediaJob struct {
 
 type MediaService interface {
 	Enqueue(job MediaJob)
+	CancelJob(itemID int64)
 }
 
 type MediaClassifier interface {
