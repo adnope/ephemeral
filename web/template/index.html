@@ -31,10 +31,20 @@
               <a
                 href="/"
                 class="top-nav-link is-active"
+                hx-boost="true"
+                hx-target="body"
+                hx-swap="innerHTML show:window:top"
                 x-bind:class="{ 'is-active': !multiSelectActive }"
                 >Chat</a
               >
-              <a href="/history" class="top-nav-link">History</a>
+              <a
+                href="/history"
+                class="top-nav-link"
+                hx-boost="true"
+                hx-target="body"
+                hx-swap="innerHTML show:window:top"
+                >History</a
+              >
               <a
                 href="#"
                 class="top-nav-link"
@@ -211,127 +221,7 @@
         </div>
       </div>
 
-      <section
-        x-cloak
-        x-show="hasUploads"
-        class="upload-queue"
-        x-bind:class="{ 'is-collapsed': uploadQueueCollapsed }"
-        aria-label="Upload queue"
-      >
-        <div class="upload-queue-header">
-          <button
-            type="button"
-            class="upload-queue-toggle"
-            x-on:click="uploadQueueCollapsed = !uploadQueueCollapsed"
-            x-bind:aria-expanded="(!uploadQueueCollapsed).toString()"
-          >
-            <span class="upload-queue-title">
-              <span>Uploads</span>
-              <span
-                class="upload-queue-summary"
-                x-text="uploadQueueSummary"
-              ></span>
-            </span>
-
-            <span
-              class="upload-queue-chevron"
-              x-text="uploadQueueCollapsed ? '▲' : '▼'"
-              aria-hidden="true"
-            ></span>
-          </button>
-
-          <button
-            type="button"
-            class="upload-queue-close"
-            aria-label="Close upload queue"
-            x-on:click="closeUploadQueue"
-          >
-            ×
-          </button>
-        </div>
-
-        <div class="upload-queue-overall">
-          <div
-            class="upload-progress-fill"
-            x-bind:style="`width: ${overallUploadProgress}%`"
-          ></div>
-        </div>
-
-        <div class="upload-queue-collapsed-meta" x-show="uploadQueueCollapsed">
-          <span x-text="formatBytes(uploadedBytes)"></span>
-          <span>/</span>
-          <span x-text="formatBytes(totalUploadBytes)"></span>
-          <span>·</span>
-          <span x-text="`${overallUploadProgress}%`"></span>
-        </div>
-
-        <div class="upload-queue-body" x-show="!uploadQueueCollapsed">
-          <template x-for="upload in uploads" x-bind:key="upload.id">
-            <article class="upload-queue-item">
-              <div class="upload-item-main">
-                <div class="upload-item-name" x-text="upload.name"></div>
-                <div class="upload-item-meta">
-                  <span x-text="formatBytes(upload.size)"></span>
-                  <span>·</span>
-                  <span x-text="statusLabel(upload)"></span>
-                </div>
-              </div>
-
-              <div class="upload-item-progress-row">
-                <div class="upload-item-progress">
-                  <div
-                    class="upload-progress-fill"
-                    x-bind:class="{ 'is-failed': upload.status === 'failed', 'is-done': upload.status === 'done' }"
-                    x-bind:style="`width: ${upload.progress}%`"
-                  ></div>
-                </div>
-
-                <span
-                  class="upload-item-percent"
-                  x-text="`${upload.progress}%`"
-                ></span>
-              </div>
-
-              <div
-                class="upload-item-error"
-                x-show="upload.status === 'failed'"
-                x-text="upload.error"
-              ></div>
-
-              <div class="upload-item-actions">
-                <button
-                  type="button"
-                  class="upload-action-link"
-                  x-show="upload.status === 'queued' || upload.status === 'uploading'"
-                  x-on:click="cancelUpload(upload)"
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="button"
-                  class="upload-action-link"
-                  x-show="upload.status === 'failed' || upload.status === 'canceled'"
-                  x-on:click="retryUpload(upload)"
-                >
-                  Retry
-                </button>
-              </div>
-            </article>
-          </template>
-
-          <div class="upload-queue-footer">
-            <button
-              type="button"
-              class="upload-action-link"
-              x-on:click="clearFinishedUploads"
-              x-show="hasFinishedUploads"
-            >
-              Clear completed
-            </button>
-          </div>
-        </div>
-      </section>
+      {{template "upload_queue" .}}
 
       <section
         x-cloak
@@ -365,11 +255,6 @@
 
     <script>
       function ephemeral() {
-        const uploadConcurrency = Number.parseInt(
-          document.body.dataset.uploadConcurrency || "",
-          10,
-        );
-
         return {
           dragover: false,
           message: "",
@@ -380,20 +265,11 @@
           composerErrorTimer: 0,
           composerAttachments: [],
           attachmentSeq: 0,
-          uploads: [],
-          uploadSeq: 0,
-          activeUploads: 0,
-          maxConcurrentUploads:
-            Number.isSafeInteger(uploadConcurrency) && uploadConcurrency > 0
-              ? uploadConcurrency
-              : 1,
-          uploadQueueCollapsed: false,
 
           pendingLocalTextCreates: 0,
-
-          get hasUploads() {
-            return this.uploads.length > 0;
-          },
+          eventSource: null,
+          refreshTimer: 0,
+          documentListeners: [],
 
           get hasComposerAttachments() {
             return this.composerAttachments.length > 0;
@@ -405,64 +281,14 @@
             );
           },
 
-          get totalUploadBytes() {
-            return this.uploads.reduce((sum, upload) => sum + upload.total, 0);
-          },
-
-          get uploadedBytes() {
-            return this.uploads.reduce((sum, upload) => sum + upload.loaded, 0);
-          },
-
-          get overallUploadProgress() {
-            if (this.totalUploadBytes === 0) return 0;
-            return Math.round(
-              (this.uploadedBytes / this.totalUploadBytes) * 100,
-            );
-          },
-
-          get hasFinishedUploads() {
-            return this.uploads.some((upload) =>
-              ["done", "failed", "canceled"].includes(upload.status),
-            );
-          },
-
-          get uploadQueueSummary() {
-            const total = this.uploads.length;
-            const done = this.uploads.filter((u) => u.status === "done").length;
-            const failed = this.uploads.filter(
-              (u) => u.status === "failed",
-            ).length;
-            const uploading = this.uploads.filter(
-              (u) => u.status === "uploading",
-            ).length;
-
-            if (uploading > 0) {
-              return `${uploading} uploading · ${this.formatBytes(
-                this.totalUploadBytes,
-              )}`;
-            }
-
-            if (failed > 0) {
-              return `${failed} failed · ${done}/${total} done`;
-            }
-
-            if (done === total && total > 0) {
-              return `${total} completed · ${this.formatBytes(
-                this.totalUploadBytes,
-              )}`;
-            }
-
-            return `${total} files · ${this.formatBytes(this.totalUploadBytes)}`;
-          },
-
           init() {
             this.setupBubbleMenuHoverGrace();
             const es = new EventSource("/api/events");
-            let refreshTimer = 0;
+            this.eventSource = es;
 
             const refreshChat = () => {
-              window.clearTimeout(refreshTimer);
-              refreshTimer = window.setTimeout(() => {
+              window.clearTimeout(this.refreshTimer);
+              this.refreshTimer = window.setTimeout(() => {
                 htmx.ajax("GET", "/", {
                   target: "#chat-stream",
                   swap: "innerHTML",
@@ -488,11 +314,11 @@
               }
             });
 
-            document.addEventListener("click", () => {
+            this.addDocumentListener("click", () => {
               this.closeItemMenus();
             });
 
-            document.addEventListener("mousedown", (event) => {
+            this.addDocumentListener("mousedown", (event) => {
               if (!this.multiSelectActive) return;
               if (this.selectedIds.length === 0) return;
 
@@ -507,14 +333,35 @@
               }
             });
 
-            document.addEventListener("keydown", (event) => {
+            this.addDocumentListener("keydown", (event) => {
               if (event.key === "Escape") {
                 this.closeItemMenus();
               }
             });
           },
 
+          destroy() {
+            this.eventSource?.close();
+            this.eventSource = null;
+            window.clearTimeout(this.refreshTimer);
+            this.refreshTimer = 0;
+
+            for (const { type, listener } of this.documentListeners) {
+              document.removeEventListener(type, listener);
+            }
+
+            this.documentListeners = [];
+          },
+
+          addDocumentListener(type, listener) {
+            document.addEventListener(type, listener);
+            this.documentListeners.push({ type, listener });
+          },
+
           setupBubbleMenuHoverGrace() {
+            if (window.__ephemeralBubbleMenuHoverGrace) return;
+            window.__ephemeralBubbleMenuHoverGrace = true;
+
             const timers = new WeakMap();
 
             document.addEventListener(
@@ -754,25 +601,7 @@
           },
 
           enqueueUploads(attachments) {
-            if (attachments.length === 0) return;
-
-            for (const attachment of attachments) {
-              this.uploads.push({
-                id: ++this.uploadSeq,
-                file: attachment.file,
-                name: attachment.name,
-                size: attachment.size,
-                loaded: 0,
-                total: attachment.size,
-                progress: 0,
-                status: "queued",
-                error: "",
-                xhr: null,
-              });
-            }
-
-            this.uploadQueueCollapsed = false;
-            this.processUploadQueue();
+            this.$store.uploads.enqueueUploads(attachments);
           },
 
           dropIncludesDirectory(dataTransfer) {
@@ -808,147 +637,6 @@
 
             const entry = getAsEntry.call(item);
             return entry?.isDirectory === true;
-          },
-
-          processUploadQueue() {
-            while (this.activeUploads < this.maxConcurrentUploads) {
-              const next = this.uploads.find(
-                (upload) => upload.status === "queued",
-              );
-              if (!next) return;
-
-              this.startUpload(next);
-            }
-          },
-
-          startUpload(upload) {
-            upload.status = "uploading";
-            upload.error = "";
-            upload.loaded = 0;
-            upload.progress = 0;
-
-            this.activeUploads += 1;
-
-            const form = new FormData();
-            form.append("file", upload.file, upload.name);
-
-            const xhr = new XMLHttpRequest();
-            upload.xhr = xhr;
-
-            xhr.upload.onprogress = (event) => {
-              if (!event.lengthComputable) return;
-
-              upload.loaded = event.loaded;
-              upload.total = event.total || upload.size;
-              upload.progress = Math.min(
-                99,
-                Math.round((event.loaded / upload.total) * 100),
-              );
-            };
-
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                upload.loaded = upload.total;
-                upload.progress = 100;
-                upload.status = "done";
-              } else {
-                upload.status = "failed";
-                upload.error = this.uploadErrorMessage(xhr);
-              }
-
-              this.finishUpload(upload);
-            };
-
-            xhr.onerror = () => {
-              upload.status = "failed";
-              upload.error = "Network error";
-              this.finishUpload(upload);
-            };
-
-            xhr.onabort = () => {
-              upload.status = "canceled";
-              upload.error = "";
-              this.finishUpload(upload);
-            };
-
-            xhr.open("POST", "/api/upload");
-            xhr.setRequestHeader("Accept", "application/json");
-            xhr.send(form);
-          },
-
-          uploadErrorMessage(xhr) {
-            const fallback = `Upload failed with HTTP ${xhr.status}`;
-            const body = xhr.responseText || "";
-            if (!body) return fallback;
-
-            try {
-              const parsed = JSON.parse(body);
-              if (
-                parsed &&
-                typeof parsed.message === "string" &&
-                parsed.message.trim()
-              ) {
-                return parsed.message;
-              }
-            } catch {
-              return fallback;
-            }
-
-            return fallback;
-          },
-
-          finishUpload(upload) {
-            upload.xhr = null;
-            this.activeUploads = Math.max(0, this.activeUploads - 1);
-            this.processUploadQueue();
-          },
-
-          cancelUpload(upload) {
-            if (upload.status === "queued") {
-              upload.status = "canceled";
-              upload.loaded = 0;
-              upload.progress = 0;
-              return;
-            }
-
-            if (upload.status === "uploading" && upload.xhr) {
-              upload.xhr.abort();
-            }
-          },
-
-          retryUpload(upload) {
-            if (!["failed", "canceled"].includes(upload.status)) return;
-
-            upload.loaded = 0;
-            upload.total = upload.size;
-            upload.progress = 0;
-            upload.error = "";
-            upload.status = "queued";
-            this.processUploadQueue();
-          },
-
-          clearFinishedUploads() {
-            this.uploads = this.uploads.filter(
-              (upload) =>
-                upload.status === "queued" || upload.status === "uploading",
-            );
-          },
-
-          statusLabel(upload) {
-            switch (upload.status) {
-              case "queued":
-                return "Queued";
-              case "uploading":
-                return "Uploading";
-              case "done":
-                return "Done";
-              case "failed":
-                return "Failed";
-              case "canceled":
-                return "Canceled";
-              default:
-                return upload.status;
-            }
           },
 
           formatBytes(bytes) {
@@ -1229,19 +917,6 @@
               hour: "numeric",
               minute: "2-digit",
             });
-          },
-
-          closeUploadQueue() {
-            const hasActiveUploads = this.uploads.some((upload) =>
-              ["queued", "uploading"].includes(upload.status),
-            );
-
-            if (hasActiveUploads) {
-              this.uploadQueueCollapsed = true;
-              return;
-            }
-
-            this.uploads = [];
           },
 
           resize(el) {

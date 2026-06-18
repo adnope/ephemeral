@@ -54,18 +54,19 @@ func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Items":      items,
-		"NextCursor": result.NextCursor,
-		"TypeFilter": strings.Join(result.Types, ","),
-		"Query":      result.Query,
-		"SearchBody": result.SearchBody,
-		"Visibility": result.Visibility,
-		"DateFrom":   result.DateFrom,
-		"DateTo":     result.DateTo,
-		"Recent":     result.Recent,
+		"Items":             items,
+		"NextCursor":        result.NextCursor,
+		"TypeFilter":        strings.Join(result.Types, ","),
+		"Query":             result.Query,
+		"SearchBody":        result.SearchBody,
+		"Visibility":        result.Visibility,
+		"DateFrom":          result.DateFrom,
+		"DateTo":            result.DateTo,
+		"Recent":            result.Recent,
+		"UploadConcurrency": h.settings.UploadConcurrency,
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isPartialHTMXRequest(r) {
 		if err := h.tmpl.ExecuteTemplate(w, "history_items", data); err != nil {
 			h.log.Error("history: render partial", "err", err)
 		}

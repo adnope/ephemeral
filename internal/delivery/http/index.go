@@ -47,7 +47,7 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		"UploadConcurrency": h.settings.UploadConcurrency,
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	if isPartialHTMXRequest(r) {
 		if err := h.tmpl.ExecuteTemplate(w, "items_partial", data); err != nil {
 			h.log.Error("index: render partial", "err", err)
 		}
@@ -58,6 +58,10 @@ func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
 		h.log.Error("index: render", "err", err)
 		http.Error(w, "render error", http.StatusInternalServerError)
 	}
+}
+
+func isPartialHTMXRequest(r *http.Request) bool {
+	return r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"
 }
 
 func parseCursor(r *http.Request) (int64, error) {

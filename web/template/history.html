@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png" />
     <link rel="manifest" href="/static/manifest.json" />
   </head>
-  <body>
+  <body data-upload-concurrency="{{.UploadConcurrency}}">
     <div
       class="chat-app"
       x-data="ephemeralHistory()"
@@ -20,10 +20,20 @@
         <h1>Ephemeral</h1>
         <nav class="top-nav" aria-label="Primary navigation">
           <div class="top-nav-links">
-            <a href="/" class="top-nav-link">Chat</a>
+            <a
+              href="/"
+              class="top-nav-link"
+              hx-boost="true"
+              hx-target="body"
+              hx-swap="innerHTML show:window:top"
+              >Chat</a
+            >
             <a
               href="/history"
               class="top-nav-link is-active"
+              hx-boost="true"
+              hx-target="body"
+              hx-swap="innerHTML show:window:top"
               x-bind:class="{ 'is-active': !multiSelectActive }"
               >History</a
             >
@@ -234,49 +244,23 @@
       </div>
     </div>
 
-    {{template "text_viewer_dialog" .}} {{template "public_share_dialog" .}}
-    {{template "delete_confirm_dialog" .}} {{template "text_viewer_scripts" .}}
-    {{template "public_share_scripts" .}} {{template "media_scripts" .}}
+    {{template "upload_queue" .}} {{template "text_viewer_dialog" .}} {{template
+    "public_share_dialog" .}} {{template "delete_confirm_dialog" .}} {{template
+    "text_viewer_scripts" .}} {{template "public_share_scripts" .}} {{template
+    "media_scripts" .}}
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-        if (!window.EventSource || !window.htmx) return;
-
-        const es = new EventSource("/api/events");
-        let refreshTimer = 0;
-
-        const refreshHistory = () => {
-          window.clearTimeout(refreshTimer);
-          refreshTimer = window.setTimeout(() => {
-            window.htmx.ajax(
-              "GET",
-              `${window.location.pathname}${window.location.search}`,
-              {
-                target: "#gallery-grid",
-                swap: "innerHTML",
-              },
-            );
-          }, 250);
-        };
-
-        es.addEventListener("item:new", refreshHistory);
-        es.addEventListener("item:updated", refreshHistory);
-        es.addEventListener("item:deleted", (event) => {
-          const id = Number.parseInt(event.data, 10);
-          if (Number.isFinite(id) && window.removeItemFromDOM) {
-            window.removeItemFromDOM(id);
-            return;
-          }
-          refreshHistory();
-        });
-      });
-
       function ephemeralHistory() {
         return {
           multiSelectActive: false,
           selectedIds: [],
+          eventSource: null,
+          refreshTimer: 0,
+          documentListeners: [],
 
           init() {
-            document.addEventListener("mousedown", (event) => {
+            this.setupHistoryRefresh();
+
+            this.addDocumentListener("mousedown", (event) => {
               if (!this.multiSelectActive) return;
               if (this.selectedIds.length === 0) return;
 
@@ -289,6 +273,56 @@
               ) {
                 this.clearSelection();
               }
+            });
+          },
+
+          destroy() {
+            this.eventSource?.close();
+            this.eventSource = null;
+            window.clearTimeout(this.refreshTimer);
+            this.refreshTimer = 0;
+
+            for (const { type, listener } of this.documentListeners) {
+              document.removeEventListener(type, listener);
+            }
+
+            this.documentListeners = [];
+          },
+
+          addDocumentListener(type, listener) {
+            document.addEventListener(type, listener);
+            this.documentListeners.push({ type, listener });
+          },
+
+          setupHistoryRefresh() {
+            if (!window.EventSource || !window.htmx) return;
+
+            const es = new EventSource("/api/events");
+            this.eventSource = es;
+
+            const refreshHistory = () => {
+              window.clearTimeout(this.refreshTimer);
+              this.refreshTimer = window.setTimeout(() => {
+                window.htmx.ajax(
+                  "GET",
+                  `${window.location.pathname}${window.location.search}`,
+                  {
+                    target: "#gallery-grid",
+                    swap: "innerHTML",
+                  },
+                );
+              }, 250);
+            };
+
+            es.addEventListener("item:new", refreshHistory);
+            es.addEventListener("item:updated", refreshHistory);
+            es.addEventListener("item:deleted", (event) => {
+              const id = Number.parseInt(event.data, 10);
+              if (Number.isFinite(id) && window.removeItemFromDOM) {
+                window.removeItemFromDOM(id);
+                return;
+              }
+              refreshHistory();
             });
           },
 
