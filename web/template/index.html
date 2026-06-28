@@ -876,12 +876,25 @@
           closeItemMenus() {
             document
               .querySelectorAll(".bubble-menu-wrap.is-open")
-              .forEach((menu) => {
-                menu.classList.remove("is-open");
+              .forEach((wrap) => {
+                wrap.classList.remove("is-open");
 
-                const button = menu.querySelector(".bubble-more-btn");
+                const menu = wrap.querySelector(".bubble-action-menu");
+                if (menu instanceof HTMLElement) {
+                  this.resetItemMenuPosition(menu);
+                }
+
+                const button = wrap.querySelector(".bubble-more-btn");
                 if (button) button.setAttribute("aria-expanded", "false");
               });
+          },
+
+          resetItemMenuPosition(menu) {
+            menu.classList.remove("is-context-positioned");
+            menu.style.removeProperty("top");
+            menu.style.removeProperty("right");
+            menu.style.removeProperty("bottom");
+            menu.style.removeProperty("left");
           },
 
           toggleItemMenu(event) {
@@ -891,12 +904,106 @@
             const wrap = button.closest(".bubble-menu-wrap");
             if (!(wrap instanceof HTMLElement)) return;
 
-            const shouldOpen = !wrap.classList.contains("is-open");
+            const menu = wrap.querySelector(".bubble-action-menu");
+            if (!(menu instanceof HTMLElement)) return;
+
+            const shouldOpen =
+              menu.classList.contains("is-context-positioned") ||
+              !wrap.classList.contains("is-open");
 
             this.closeItemMenus();
+            this.resetItemMenuPosition(menu);
 
             wrap.classList.toggle("is-open", shouldOpen);
             button.setAttribute("aria-expanded", shouldOpen.toString());
+          },
+
+          openItemMenu(event) {
+            const bubble = event.currentTarget;
+            if (!(bubble instanceof HTMLElement)) return;
+
+            const wrap = bubble.querySelector(".bubble-menu-wrap");
+            const button = wrap?.querySelector(".bubble-more-btn");
+            const menu = wrap?.querySelector(".bubble-action-menu");
+            if (!(wrap instanceof HTMLElement)) return;
+            if (!(menu instanceof HTMLElement)) return;
+
+            this.closeItemMenus();
+            menu.classList.add("is-context-positioned");
+            menu.style.top = `${event.clientY}px`;
+            menu.style.right = "auto";
+            menu.style.bottom = "auto";
+            menu.style.left = `${event.clientX}px`;
+            wrap.classList.add("is-open");
+            button?.setAttribute("aria-expanded", "true");
+
+            const margin = 8;
+            const rect = menu.getBoundingClientRect();
+            const maxLeft = Math.max(
+              margin,
+              window.innerWidth - rect.width - margin,
+            );
+            const maxTop = Math.max(
+              margin,
+              window.innerHeight - rect.height - margin,
+            );
+
+            menu.style.left = `${Math.min(Math.max(margin, event.clientX), maxLeft)}px`;
+            menu.style.top = `${Math.min(Math.max(margin, event.clientY), maxTop)}px`;
+          },
+
+          async copyTextItem(button) {
+            if (!(button instanceof HTMLButtonElement)) return;
+
+            const bubble = button.closest('[data-item-type="text"]');
+            if (!(bubble instanceof HTMLElement)) return;
+
+            const text = bubble.dataset.textContent;
+            if (typeof text !== "string") return;
+
+            this.closeItemMenus();
+
+            try {
+              await this.writeTextToClipboard(text);
+
+              const label = button.querySelector("span");
+              if (label) label.textContent = "Copied";
+
+              window.setTimeout(() => {
+                if (label?.isConnected) label.textContent = "Copy";
+              }, 1200);
+            } catch (error) {
+              console.warn("copy failed", error);
+              this.closeItemMenus();
+              this.showComposerError("Could not copy text.");
+            }
+          },
+
+          async writeTextToClipboard(text) {
+            if (navigator.clipboard?.writeText) {
+              try {
+                await navigator.clipboard.writeText(text);
+                return;
+              } catch (error) {
+                console.warn("clipboard API failed; using fallback", error);
+              }
+            }
+
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            textarea.setAttribute("readonly", "");
+            textarea.style.position = "fixed";
+            textarea.style.left = "-9999px";
+            document.body.appendChild(textarea);
+
+            try {
+              textarea.select();
+              if (!document.execCommand("copy")) {
+                throw new Error("legacy clipboard copy was rejected");
+              }
+            } finally {
+              textarea.remove();
+            }
           },
 
           removeItemFromDOM(id) {

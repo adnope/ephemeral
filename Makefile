@@ -46,13 +46,9 @@ clean:
 clean-data:
 	rm -rf ./data
 
-docker:
-	docker build -t $(APP_NAME):latest .
+docker-build:
+	docker build -t adnope/$(APP_NAME):indev .
 
-docker-run:
-	docker run -d \
-		--name $(APP_NAME) \
-		-p 8080:8080 \
-		-v $(APP_NAME)-data:/app/data \
-		--restart unless-stopped \
-		$(APP_NAME):latest
+docker-up: docker-build
+	docker compose down
+	docker compose up -d

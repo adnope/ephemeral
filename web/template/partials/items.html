@@ -20,6 +20,7 @@
   data-download-url="{{if ne .Type `text`}}{{fileURL .Content}}{{end}}"
   data-text-content="{{if eq .Type `text`}}{{.Content}}{{end}}"
   x-bind:class="{ 'is-selected': selectedIds.includes({{.ID}}) }"
+  @contextmenu.prevent="openItemMenu($event)"
 >
   <div class="item-checkbox-container">
     <span class="item-checkbox-circle"></span>
@@ -38,13 +39,22 @@
     </button>
 
     <div class="bubble-action-menu" role="menu">
-      {{if ne .Type "text"}}
+      {{if eq .Type "text"}}
+      <button
+        type="button"
+        class="bubble-action-menu-item"
+        role="menuitem"
+        @click.stop="copyTextItem($el)"
+      >
+        <span>Copy</span>
+      </button>
+      {{else}}
       <a
         href="{{fileURL .Content}}"
         download="{{.Filename}}"
         class="bubble-action-menu-item"
         role="menuitem"
-        onclick="event.stopPropagation()"
+        @click.stop="closeItemMenus()"
       >
         Download
       </a>
