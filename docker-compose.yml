@@ -4,7 +4,7 @@ services:
     mem_limit: 768m
     mem_reservation: 512m
     ports:
-      - "8080:8080"
+      - "8181:8080"
     volumes:
       - ephemeral-data:/app/data
     environment:

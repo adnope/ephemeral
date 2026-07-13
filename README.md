@@ -40,6 +40,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 - Upload progress queue for file uploads
 - History search: type and date filters, filename, text file body search
 - Pagination and infinite scrolling
+- Reactive real-time updates over server-sent events
 - Mobile-friendly JSON API
 - SQLite data persistence
 - Docker deployment
@@ -49,8 +50,9 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 
 - Go
 - SQLite
-- Alpine.js
-- HTMX
+- Vue 3
+- TypeScript
+- Vite
 - HLS.js
 - FFmpeg
 - Docker & Docker Compose
@@ -120,10 +122,11 @@ Run with hot reload:
 make dev
 ```
 
+The development command starts the Go API on port 8080 and Vite on port 5173.
 Go to:
 
 ```text
-http://localhost:8080
+http://localhost:5173
 ```
 
 ### Build and Run Locally

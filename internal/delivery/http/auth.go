@@ -35,25 +35,6 @@ func (h *Handler) AuthState(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, authStateResponse{SetupRequired: page.IsSetup})
 }
 
-// LoginPage handles GET /login.
-func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	page, err := h.auth.LoginPage(r.Context())
-	if err != nil {
-		h.log.Error("login: page data", "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
-	data := map[string]any{
-		"IsSetup": page.IsSetup,
-		"Error":   r.URL.Query().Get("error"),
-	}
-
-	if err := h.tmpl.ExecuteTemplate(w, "login.html", data); err != nil {
-		h.log.Error("login: render", "err", err)
-	}
-}
-
 // Login handles POST /api/login.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var username string

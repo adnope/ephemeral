@@ -22,4 +22,10 @@ func TestPublicSharePathsSkipSessionAuth(t *testing.T) {
 	if !isPublicPath("/share/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/file") {
 		t.Fatal("/share/{token}/file should be public")
 	}
+	if !isPublicPath("/api/share/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") {
+		t.Fatal("/api/share/{token} should be public")
+	}
+	if !isPublicPath("/assets/app-hash.js") {
+		t.Fatal("/assets/* should be public")
+	}
 }

@@ -1,7 +1,6 @@
 package httpdelivery
 
 import (
-	"html/template"
 	"log/slog"
 	"net/http"
 
@@ -17,7 +16,6 @@ type Handler struct {
 	history  *usecase.HistoryUseCase
 	auth     *usecase.AuthUseCase
 	events   EventStream
-	tmpl     *template.Template
 	log      *slog.Logger
 	settings HandlerSettings
 	uploads  chan struct{}
@@ -38,7 +36,6 @@ func NewHandler(
 	historyUseCase *usecase.HistoryUseCase,
 	authUseCase *usecase.AuthUseCase,
 	events EventStream,
-	tmpl *template.Template,
 	log *slog.Logger,
 	settings HandlerSettings,
 ) *Handler {
@@ -51,7 +48,6 @@ func NewHandler(
 		history:  historyUseCase,
 		auth:     authUseCase,
 		events:   events,
-		tmpl:     tmpl,
 		log:      log,
 		settings: settings,
 		uploads:  make(chan struct{}, boundedUploadConcurrency(settings.UploadConcurrency)),

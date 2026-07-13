@@ -1,22 +1,42 @@
 {
+  "name": "ephemeral-web",
+  "private": true,
   "type": "module",
   "scripts": {
-    "build-vendor": "npm run build-shiki && npm run build-hls",
-    "build-shiki": "esbuild node_modules/shiki/dist/bundle-web.mjs --bundle --format=esm --target=es2022 --platform=browser --outfile=static/vendor/shiki.bundle.mjs",
-    "build-hls": "esbuild node_modules/hls.js/dist/hls.light.mjs --bundle --minify --format=esm --target=es2022 --platform=browser --outfile=static/vendor/hls.bundle.mjs",
-    "format": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\"",
-    "lint": "eslint \"**/*.js\"",
-    "fix": "prettier --write \"**/*.{html,css,js,json,md,yml,yaml}\" && eslint \"**/*.js\" --fix"
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write \"src/**/*.{vue,ts,css}\" \"*.{html,js,json}\"",
+    "lint": "eslint . && prettier --check \"src/**/*.{vue,ts,css}\" \"*.{html,js,json}\"",
+    "fix": "eslint . --fix && npm run format"
   },
   "devDependencies": {
     "@eslint/js": "latest",
-    "esbuild": "^0.28.0",
+    "@vitejs/plugin-vue": "^6.0.7",
+    "@vue/test-utils": "^2.4.11",
+    "concurrently": "^10.0.3",
+    "esbuild": "^0.28.1",
     "eslint": "latest",
+    "eslint-plugin-vue": "^10.9.2",
     "globals": "^17.6.0",
-    "prettier": "latest"
+    "jsdom": "^29.1.1",
+    "prettier": "latest",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.63.0",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10",
+    "vue-tsc": "^3.3.7"
   },
   "dependencies": {
+    "@fontsource/poppins": "^5.2.7",
+    "@lucide/vue": "^1.24.0",
+    "@shikijs/core": "^4.0.2",
+    "@shikijs/engine-javascript": "^4.0.2",
+    "@shikijs/langs": "^4.0.2",
+    "@shikijs/themes": "^4.0.2",
     "hls.js": "^1.6.16",
-    "shiki": "^4.0.2"
+    "vue": "^3.5.39",
+    "vue-router": "^4.6.4"
   }
 }

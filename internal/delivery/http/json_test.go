@@ -83,6 +83,16 @@ func TestItemToResponseText(t *testing.T) {
 	}
 }
 
+func TestItemToResponseIncludesActivePublicLink(t *testing.T) {
+	item := &domain.Item{ID: 8, Type: domain.ItemTypeFile}
+
+	got := itemToResponseWithPublicLink(item, true)
+
+	if !got.PublicLinkActive {
+		t.Fatal("PublicLinkActive = false, want true")
+	}
+}
+
 func TestDecodeJSONRejectsBodyAboveLimit(t *testing.T) {
 	var reqBody struct {
 		Text string `json:"text"`

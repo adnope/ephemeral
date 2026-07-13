@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -212,6 +213,29 @@ func TestPublicLinkStatusClassifiesLinkState(t *testing.T) {
 	}
 }
 
+func TestPublicLinkChangesBroadcastItemUpdated(t *testing.T) {
+	uc := newPublicLinkTestUseCase(map[int64]*domain.Item{
+		9: {ID: 9, Type: domain.ItemTypeFile, Content: "report.txt"},
+	})
+	broker := &recordingPublicLinkBroker{}
+	uc.broker = broker
+
+	if _, err := uc.CreatePublicLink(context.Background(), 9, nil); err != nil {
+		t.Fatalf("CreatePublicLink(): %v", err)
+	}
+	if err := uc.RevokePublicLink(context.Background(), 9); err != nil {
+		t.Fatalf("RevokePublicLink(): %v", err)
+	}
+
+	want := []domain.Event{
+		{Type: "item:updated", ID: 9},
+		{Type: "item:updated", ID: 9},
+	}
+	if !reflect.DeepEqual(broker.events, want) {
+		t.Fatalf("events = %#v, want %#v", broker.events, want)
+	}
+}
+
 func TestActivePublicLinkItemIDsReturnsOnlyUnexpiredUploadedItems(t *testing.T) {
 	now := time.Date(2026, 5, 25, 8, 0, 0, 0, time.UTC)
 	repo := newFakePublicLinkRepo()
@@ -327,6 +351,14 @@ func newPublicLinkTestUseCaseWithRepo(items map[int64]*domain.Item, public *fake
 
 type fakePublicLinkItemRepo struct {
 	items map[int64]*domain.Item
+}
+
+type recordingPublicLinkBroker struct {
+	events []domain.Event
+}
+
+func (b *recordingPublicLinkBroker) Broadcast(event domain.Event) {
+	b.events = append(b.events, event)
 }
 
 func (r *fakePublicLinkItemRepo) Create(context.Context, *domain.Item) (int64, error) {

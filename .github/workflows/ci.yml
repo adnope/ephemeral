@@ -28,6 +28,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build web UI
+        working-directory: web
+        run: npm ci && npm run build
+
       - name: Download Go dependencies
         run: go mod download
 
@@ -44,7 +55,7 @@ jobs:
         run: go vet ./cmd/... ./internal/... ./web
 
       - name: Test
-        run: go test ./...
+        run: go test ./cmd/... ./internal/... ./web
 
       - name: Build
         run: CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /tmp/ephemeral ./cmd/ephemeral
@@ -76,6 +87,9 @@ jobs:
 
       - name: Lint JavaScript
         run: npm run lint
+
+      - name: Build web UI
+        run: npm run build
 
   docker:
     name: Docker build

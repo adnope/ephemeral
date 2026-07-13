@@ -369,6 +369,7 @@ func (uc *ItemUseCase) CreatePublicLink(ctx context.Context, itemID int64, expir
 	if err != nil {
 		return PublicLinkResult{}, fmt.Errorf("save public link: %w", err)
 	}
+	uc.broadcast(domain.Event{Type: "item:updated", ID: itemID})
 
 	return publicLinkResult(link), nil
 }
@@ -445,6 +446,7 @@ func (uc *ItemUseCase) RevokePublicLink(ctx context.Context, itemID int64) error
 	if err := uc.public.DeleteForItem(ctx, itemID); err != nil {
 		return fmt.Errorf("delete public link: %w", err)
 	}
+	uc.broadcast(domain.Event{Type: "item:updated", ID: itemID})
 	return nil
 }
 

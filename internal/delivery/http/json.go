@@ -42,6 +42,7 @@ type itemResponse struct {
 	ContentURL           string               `json:"contentUrl"`
 	DownloadURL          string               `json:"downloadUrl"`
 	CreatedAtEpochMillis int64                `json:"createdAtEpochMillis"`
+	PublicLinkActive     bool                 `json:"publicLinkActive"`
 	Metadata             itemMetadataResponse `json:"metadata"`
 }
 
@@ -108,10 +109,10 @@ func writeJSONError(w http.ResponseWriter, status int, code string, message stri
 	})
 }
 
-func pageToResponse(items []*domain.Item, nextCursor int64) pageResponse {
+func pageToResponse(items []*domain.Item, nextCursor int64, activePublicLinks map[int64]bool) pageResponse {
 	responses := make([]itemResponse, 0, len(items))
 	for _, item := range items {
-		responses = append(responses, itemToResponse(item))
+		responses = append(responses, itemToResponseWithPublicLink(item, activePublicLinks[item.ID]))
 	}
 	return pageResponse{
 		Items:      responses,
@@ -121,6 +122,10 @@ func pageToResponse(items []*domain.Item, nextCursor int64) pageResponse {
 }
 
 func itemToResponse(item *domain.Item) itemResponse {
+	return itemToResponseWithPublicLink(item, false)
+}
+
+func itemToResponseWithPublicLink(item *domain.Item, publicLinkActive bool) itemResponse {
 	if item == nil {
 		return itemResponse{}
 	}
@@ -157,6 +162,7 @@ func itemToResponse(item *domain.Item) itemResponse {
 		ContentURL:           contentURL,
 		DownloadURL:          downloadURL,
 		CreatedAtEpochMillis: unixMillis(item.CreatedAt),
+		PublicLinkActive:     publicLinkActive,
 		Metadata: itemMetadataResponse{
 			Width:        item.Metadata.Width,
 			Height:       item.Metadata.Height,

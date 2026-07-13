@@ -53,7 +53,8 @@ Mobile/API clients should send:
 Accept: application/json
 ```
 
-For shared endpoints such as login, logout, message creation, and upload, JSON requests receive JSON/status responses while browser form/HTMX requests keep the existing redirect or HTML partial behavior.
+Message creation and upload endpoints always return JSON.
+Login and logout retain form redirects for non-JSON clients.
 
 JSON errors use:
 
@@ -89,6 +90,7 @@ Mobile item JSON shape:
   "contentUrl": "/api/files/...",
   "downloadUrl": "/api/files/...",
   "createdAtEpochMillis": 1710000000000,
+  "publicLinkActive": true,
   "metadata": {
     "width": 640,
     "height": 480,
@@ -104,6 +106,7 @@ Mobile item JSON shape:
 ```
 
 For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and `contentUrl` / `downloadUrl` point to the original upload.
+`publicLinkActive` is `true` only when the uploaded item has a public link that has not expired.
 
 ### Media Playback Contract
 
@@ -209,6 +212,17 @@ Requires `session_token`.
 **Response**
 
 Returns a mobile page JSON object.
+
+---
+
+### `GET /api/items/{id}`
+
+Returns one item using the mobile item JSON shape.
+The SPA uses this endpoint to refresh a specific item after a real-time event.
+
+**Auth**
+
+Requires `session_token`.
 
 ---
 
@@ -355,9 +369,7 @@ application/x-www-form-urlencoded
 
 **Response**
 
-Returns the rendered `item_partial` HTML for the newly created message.
-
-For JSON requests, send:
+Send JSON:
 
 ```json
 {
@@ -365,7 +377,7 @@ For JSON requests, send:
 }
 ```
 
-and receive one mobile item JSON object.
+The response is one mobile item JSON object.
 
 **Side effects**
 
@@ -395,15 +407,13 @@ multipart/form-data
 
 **Response**
 
-Returns the rendered `item_partial` HTML for the uploaded item.
-
-For JSON requests, send the same `multipart/form-data` body with:
+Send the `multipart/form-data` body with:
 
 ```http
 Accept: application/json
 ```
 
-The response is one mobile item JSON object.
+The response is always one mobile item JSON object.
 
 **Behavior**
 
@@ -611,6 +621,8 @@ Never expire:
 
 For non-expiring links, `expires_at` is `null`.
 
+Creating or updating a link emits an `item:updated` SSE event so authenticated clients can refresh `publicLinkActive`.
+
 **Status codes**
 
 |  Code | Meaning                                     |
@@ -640,6 +652,8 @@ Requires `session_token`.
 
 Validation/not-found/server errors use the shared JSON error shape.
 
+Revoking a link emits an `item:updated` SSE event so authenticated clients can refresh `publicLinkActive`.
+
 ---
 
 ### `GET /share/{token}`
@@ -663,6 +677,29 @@ GET /share/{token}/thumb
 ```
 
 `/share/{token}/download` always serves the original uploaded file as an attachment.
+
+---
+
+### `GET /api/share/{token}`
+
+Returns the metadata needed by the public Vue view for an image or video share.
+This route is public and does not require `session_token`.
+
+```json
+{
+  "filename": "clip.mp4",
+  "filesizeBytes": 2048,
+  "itemType": "video",
+  "mime": "video/mp4",
+  "sourceUrl": "/share/token/file",
+  "posterUrl": "/share/token/thumb",
+  "downloadUrl": "/share/token/download",
+  "expiresAt": "2026-06-01T08:00:00Z",
+  "processing": false
+}
+```
+
+Generic file shares return `415 unsupported_share` so browser clients can navigate directly to `/share/{token}/download`.
 
 ---
 
@@ -729,76 +766,31 @@ Emits SSE event:
 item:deleted
 ```
 
-## View Endpoints
+## SPA Routes
 
-These endpoints return server-rendered HTML.
+The Go binary serves the embedded Vue SPA shell for these routes.
 
 ### `GET /`
 
 Main chat interface.
-
-**Query params**
-
-| Param    | Type    | Description                   |
-| -------- | ------- | ----------------------------- |
-| `cursor` | integer | Load items with `id < cursor` |
-
-Used for cursor-based pagination and infinite scrolling.
-The page size is `CHAT_PAGE_SIZE`.
-
-When requested via HTMX, returns only the `items_partial` HTML.
+The client loads data from `GET /api/items` and applies SSE changes reactively.
 
 ---
 
 ### `GET /history`
 
 History/gallery interface.
-
-**Query params**
-
-| Param        | Type         | Description                                             |
-| ------------ | ------------ | ------------------------------------------------------- |
-| `cursor`     | integer      | Load items with `id < cursor`                           |
-| `type`       | string       | Filter by item type, e.g. `image`, `video`, `file`      |
-| `q`          | string       | Search query                                            |
-| `body`       | `1`          | Enable text/code file body search                       |
-| `from`       | `YYYY-MM-DD` | Start upload date                                       |
-| `to`         | `YYYY-MM-DD` | End upload date                                         |
-| `recent`     | string       | Recent-time preset                                      |
-| `visibility` | string       | Active public-link filter: `public`, `private`, `all`   |
-
-Supported `recent` values:
-
-```text
-1d
-7d
-14d
-30d
-90d
-6mo
-1y
-```
-
-When requested via HTMX, returns only the `history_items` HTML.
-The page size is `HISTORY_PAGE_SIZE`.
-For `visibility=private`, items with expired public links are included because they are not currently publicly available.
+Filter query parameters are preserved in the browser URL and passed to `GET /api/history`.
 
 ---
 
-### `GET /search`
+### `GET /login`
 
-Searches existing items using the older item FTS search endpoint.
+Login and first-account setup interface.
 
-**Query params**
+### `GET /share/{token}`
 
-| Param | Type   | Required | Description  |
-| ----- | ------ | -------: | ------------ |
-| `q`   | string |      yes | Search query |
-
-**Response**
-
-Returns rendered `items_partial` HTML.
-Returns at most `SEARCH_RESULT_LIMIT` items.
+Public share interface.
 
 ## Real-Time Updates
 
@@ -813,6 +805,10 @@ Opens the SSE stream.
 ```http
 text/event-stream
 ```
+
+Each item event includes a monotonically increasing SSE `id` within the running server process.
+Browsers automatically send the last received ID when reconnecting, and the server replays retained events after that ID.
+If the requested ID is no longer available or belongs to an earlier server process, the server emits `stream:reset` so the UI can reconcile against the current item collection.
 
 ### Browser example
 
@@ -834,6 +830,10 @@ events.addEventListener("item:deleted", (event) => {
   console.log("Deleted item:", itemId);
 });
 
+events.addEventListener("stream:reset", () => {
+  console.log("Reconcile the current item collection");
+});
+
 events.onerror = (error) => {
   console.error("SSE error:", error);
 };
@@ -841,11 +841,12 @@ events.onerror = (error) => {
 
 ### Event Types
 
-| Event          | Description                                                             |
-| -------------- | ----------------------------------------------------------------------- |
-| `item:new`     | New text message or uploaded file was created                           |
-| `item:updated` | Background media metadata, thumbnail, and playback processing completed |
-| `item:deleted` | Item was permanently deleted                                            |
+| Event          | Description                                                                          |
+| -------------- | ------------------------------------------------------------------------------------ |
+| `item:new`     | New text message or uploaded file was created                                        |
+| `item:updated` | Media processing completed or the item's active public-link state changed            |
+| `item:deleted` | Item was permanently deleted                                                         |
+| `stream:reset` | Retained replay is unavailable and the client must reconcile                         |
 
 ## Data Model Summary
 

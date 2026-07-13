@@ -3,6 +3,8 @@ package httpdelivery
 import (
 	"net/http"
 	"strconv"
+
+	"github.com/adnope/ephemeral/internal/domain"
 )
 
 // Items handles GET /api/items.
@@ -19,49 +21,36 @@ func (h *Handler) Items(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
 		return
 	}
+	activePublicLinks, err := h.items.ActivePublicLinkItemIDs(r.Context(), page.Items)
+	if err != nil {
+		h.log.Error("items: list active public links", "err", err)
+		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
+		return
+	}
 
-	writeJSON(w, http.StatusOK, pageToResponse(page.Items, page.NextCursor))
+	writeJSON(w, http.StatusOK, pageToResponse(page.Items, page.NextCursor, activePublicLinks))
 }
 
-// Index handles GET /.
-func (h *Handler) Index(w http.ResponseWriter, r *http.Request) {
-	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
+// Item handles GET /api/items/{id}.
+func (h *Handler) Item(w http.ResponseWriter, r *http.Request) {
+	itemID, ok := parseItemIDParam(w, r)
+	if !ok {
+		return
+	}
 
-	page, err := h.items.List(r.Context(), cursor, h.settings.ChatPageSize)
+	item, err := h.items.GetItem(r.Context(), itemID)
 	if err != nil {
-		h.log.Error("index: list items", "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		writeJSONError(w, http.StatusNotFound, "not_found", "item not found")
 		return
 	}
-
-	items, err := h.itemTemplateData(r.Context(), page.Items)
+	activePublicLinks, err := h.items.ActivePublicLinkItemIDs(r.Context(), []*domain.Item{item})
 	if err != nil {
-		h.log.Error("index: public link state", "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		h.log.Error("item: list active public links", "err", err)
+		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
 		return
 	}
 
-	data := map[string]any{
-		"Items":             items,
-		"NextCursor":        page.NextCursor,
-		"UploadConcurrency": h.settings.UploadConcurrency,
-	}
-
-	if isPartialHTMXRequest(r) {
-		if err := h.tmpl.ExecuteTemplate(w, "items_partial", data); err != nil {
-			h.log.Error("index: render partial", "err", err)
-		}
-		return
-	}
-
-	if err := h.tmpl.ExecuteTemplate(w, "index.html", data); err != nil {
-		h.log.Error("index: render", "err", err)
-		http.Error(w, "render error", http.StatusInternalServerError)
-	}
-}
-
-func isPartialHTMXRequest(r *http.Request) bool {
-	return r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true"
+	writeJSON(w, http.StatusOK, itemToResponseWithPublicLink(item, activePublicLinks[item.ID]))
 }
 
 func parseCursor(r *http.Request) (int64, error) {

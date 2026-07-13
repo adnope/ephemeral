@@ -3,7 +3,6 @@ package httpdelivery
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/adnope/ephemeral/internal/usecase"
@@ -27,56 +26,14 @@ func (h *Handler) HistoryAPI(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
 		return
 	}
-
-	writeJSON(w, http.StatusOK, pageToResponse(result.Items, result.NextCursor))
-}
-
-// History handles GET /history.
-func (h *Handler) History(w http.ResponseWriter, r *http.Request) {
-	cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
-
-	result, err := h.searchHistory(r, cursor)
+	activePublicLinks, err := h.items.ActivePublicLinkItemIDs(r.Context(), result.Items)
 	if err != nil {
-		if errors.Is(err, usecase.ErrInvalidInput) {
-			http.Error(w, "invalid history filter", http.StatusBadRequest)
-			return
-		}
-		h.log.Error("history: query", "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		h.log.Error("history api: list active public links", "err", err)
+		writeJSONError(w, http.StatusInternalServerError, "server_error", "internal error")
 		return
 	}
 
-	items, err := h.itemTemplateData(r.Context(), result.Items)
-	if err != nil {
-		h.log.Error("history: public link state", "err", err)
-		http.Error(w, "internal error", http.StatusInternalServerError)
-		return
-	}
-
-	data := map[string]any{
-		"Items":             items,
-		"NextCursor":        result.NextCursor,
-		"TypeFilter":        strings.Join(result.Types, ","),
-		"Query":             result.Query,
-		"SearchBody":        result.SearchBody,
-		"Visibility":        result.Visibility,
-		"DateFrom":          result.DateFrom,
-		"DateTo":            result.DateTo,
-		"Recent":            result.Recent,
-		"UploadConcurrency": h.settings.UploadConcurrency,
-	}
-
-	if isPartialHTMXRequest(r) {
-		if err := h.tmpl.ExecuteTemplate(w, "history_items", data); err != nil {
-			h.log.Error("history: render partial", "err", err)
-		}
-		return
-	}
-
-	if err := h.tmpl.ExecuteTemplate(w, "history.html", data); err != nil {
-		h.log.Error("history: render", "err", err)
-		http.Error(w, "render error", http.StatusInternalServerError)
-	}
+	writeJSON(w, http.StatusOK, pageToResponse(result.Items, result.NextCursor, activePublicLinks))
 }
 
 func (h *Handler) searchHistory(r *http.Request, cursor int64) (usecase.HistoryResult, error) {
@@ -96,36 +53,4 @@ func (h *Handler) searchHistory(r *http.Request, cursor int64) (usecase.HistoryR
 		Recent:      r.URL.Query().Get("recent"),
 		Limit:       h.settings.HistoryPageSize,
 	})
-}
-
-// SearchItems handles GET /search?q=query.
-func (h *Handler) SearchItems(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
-
-	items, err := h.items.SearchItems(r.Context(), query, h.settings.SearchResultLimit)
-	if err != nil {
-		if errors.Is(err, usecase.ErrEmptyQuery) {
-			http.Error(w, "empty query", http.StatusBadRequest)
-			return
-		}
-		h.log.Error("search: query", "err", err)
-		http.Error(w, "search failed", http.StatusInternalServerError)
-		return
-	}
-
-	templateItems, err := h.itemTemplateData(r.Context(), items)
-	if err != nil {
-		h.log.Error("search: public link state", "err", err)
-		http.Error(w, "search failed", http.StatusInternalServerError)
-		return
-	}
-
-	data := map[string]any{
-		"Items": templateItems,
-		"Query": query,
-	}
-
-	if err := h.tmpl.ExecuteTemplate(w, "items_partial", data); err != nil {
-		h.log.Error("search: render", "err", err)
-	}
 }

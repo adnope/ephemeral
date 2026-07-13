@@ -2,5 +2,5 @@ package web
 
 import "embed"
 
-//go:embed template/*.html template/partials/*.html static/*
+//go:embed dist/* static/*
 var FS embed.FS

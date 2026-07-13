@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"sort"
@@ -78,12 +76,6 @@ func main() {
 	}
 	searchIndexer := search.NewIndexer(db, cfg.DataDir, cfg.BodyIndexMaxBytes, logger)
 
-	tmpl, err := parseTemplates()
-	if err != nil {
-		logger.Error("template parse failed", "err", err)
-		os.Exit(1)
-	}
-
 	itemUseCase := usecase.NewItemUseCase(
 		itemRepo,
 		publicLinkRepo,
@@ -102,7 +94,6 @@ func main() {
 		historyUseCase,
 		authUseCase,
 		broker,
-		tmpl,
 		logger,
 		httpdelivery.HandlerSettings{
 			ChatPageSize:        cfg.ChatPageSize,
@@ -134,16 +125,29 @@ func main() {
 
 	staticFS := http.FileServer(http.FS(staticSubFS))
 	r.Handle("/static/*", http.StripPrefix("/static/", staticFS))
+	distSubFS, err := fs.Sub(web.FS, "dist")
+	if err != nil {
+		logger.Error("spa fs init failed", "err", err)
+		os.Exit(1)
+	}
+	spaIndex, err := fs.ReadFile(distSubFS, "index.html")
+	if err != nil {
+		logger.Error("spa index read failed", "err", err)
+		os.Exit(1)
+	}
+	spa := spaHandler(spaIndex)
+	assetsFS := http.FileServer(http.FS(distSubFS))
+	r.Handle("/assets/*", immutableAssets(assetsFS))
 
-	r.Get("/", h.Index)
-	r.Get("/history", h.History)
-	r.Get("/search", h.SearchItems)
-	r.Get("/login", h.LoginPage)
+	r.Get("/", spa)
+	r.Get("/history", spa)
+	r.Get("/login", spa)
 
 	r.Get("/api/auth/state", h.AuthState)
 	r.Get("/api/config", h.Config)
 	r.Get("/api/events", h.Events)
 	r.Get("/api/items", h.Items)
+	r.Get("/api/items/{id}", h.Item)
 	r.Get("/api/items/download-zip", h.DownloadZip)
 	r.Get("/api/history", h.HistoryAPI)
 	r.Post("/api/upload", h.Upload)
@@ -156,10 +160,11 @@ func main() {
 	r.Get("/api/file-preview/{id}", h.PreviewFile)
 	r.Post("/api/login", h.Login)
 	r.Post("/api/logout", h.Logout)
-	r.Get("/share/{token}", h.PublicShare)
+	r.Get("/api/share/{token}", h.PublicShareAPI)
 	r.Get("/share/{token}/file", h.PublicShareFile)
 	r.Get("/share/{token}/download", h.PublicShareDownload)
 	r.Get("/share/{token}/thumb", h.PublicShareThumb)
+	r.Get("/share/{token}", spa)
 
 	go func() {
 		if err := sessionRepo.PurgeExpired(context.Background()); err != nil {
@@ -244,51 +249,4 @@ func loadMigrations(fsys fs.FS) (string, error) {
 	}
 
 	return b.String(), nil
-}
-
-func parseTemplates() (*template.Template, error) {
-	funcMap := template.FuncMap{
-		"formatSize":  formatSize,
-		"fileURL":     fileURL,
-		"linkifyText": linkifyText,
-		"queryEscape": queryEscape,
-	}
-
-	tmpl, err := template.New("").Funcs(funcMap).ParseFS(
-		web.FS,
-		"template/*.html",
-		"template/partials/*.html",
-	)
-	if err != nil {
-		return nil, fmt.Errorf("parse embedded templates: %w", err)
-	}
-
-	return tmpl, nil
-}
-
-func formatSize(bytes int64) string {
-	const (
-		kb = 1024
-		mb = kb * 1024
-		gb = mb * 1024
-	)
-
-	switch {
-	case bytes >= gb:
-		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(gb))
-	case bytes >= mb:
-		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mb))
-	case bytes >= kb:
-		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(kb))
-	default:
-		return fmt.Sprintf("%d B", bytes)
-	}
-}
-
-func fileURL(name string) string {
-	return "/api/files/" + url.PathEscape(name)
-}
-
-func queryEscape(value string) string {
-	return url.QueryEscape(value)
 }

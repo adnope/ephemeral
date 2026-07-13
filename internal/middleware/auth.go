@@ -76,7 +76,7 @@ func SessionAuth(repo domain.SessionRepository, sessionTTL time.Duration, cookie
 }
 
 func isPublicPath(path string) bool {
-	if strings.HasPrefix(path, "/static/") || strings.HasPrefix(path, "/share/") {
+	if strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/static/") || strings.HasPrefix(path, "/share/") || strings.HasPrefix(path, "/api/share/") {
 		return true
 	}
 	_, ok := publicPaths[path]

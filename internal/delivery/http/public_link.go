@@ -28,16 +28,16 @@ type publicLinkStatusResponse struct {
 	ExpiresAt *time.Time `json:"expires_at"`
 }
 
-type publicSharePageData struct {
-	Filename    string
-	Filesize    int64
-	ItemType    string
-	MIME        string
-	SourceURL   string
-	PosterURL   string
-	DownloadURL string
-	ExpiresAt   string
-	Processing  bool
+type publicShareResponse struct {
+	Filename      string     `json:"filename"`
+	FilesizeBytes int64      `json:"filesizeBytes"`
+	ItemType      string     `json:"itemType"`
+	MIME          string     `json:"mime"`
+	SourceURL     string     `json:"sourceUrl"`
+	PosterURL     string     `json:"posterUrl"`
+	DownloadURL   string     `json:"downloadUrl"`
+	ExpiresAt     *time.Time `json:"expiresAt"`
+	Processing    bool       `json:"processing"`
 }
 
 // PublicLinkStatus handles GET /api/items/{id}/public-link.
@@ -111,25 +111,33 @@ func (h *Handler) RevokePublicLink(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// PublicShare handles GET /share/{token}.
-func (h *Handler) PublicShare(w http.ResponseWriter, r *http.Request) {
-	token := chi.URLParam(r, "token")
-
-	view, err := h.items.PublicShareView(r.Context(), token)
+// PublicShareAPI handles GET /api/share/{token}.
+func (h *Handler) PublicShareAPI(w http.ResponseWriter, r *http.Request) {
+	view, err := h.items.PublicShareView(r.Context(), chi.URLParam(r, "token"))
 	if err != nil {
-		if errors.Is(err, usecase.ErrUnsupportedShare) {
-			h.servePublicSharedFile(w, r, token, "download")
-			return
+		switch {
+		case errors.Is(err, usecase.ErrUnsupportedShare):
+			writeJSONError(w, http.StatusUnsupportedMediaType, "unsupported_share", "shared file must be downloaded")
+		case errors.Is(err, usecase.ErrNotFound):
+			writeJSONError(w, http.StatusNotFound, "not_found", "public link not found")
+		default:
+			h.log.Error("public share api: resolve", "err", err)
+			writeJSONError(w, http.StatusInternalServerError, "server_error", "public share could not be loaded")
 		}
-		http.NotFound(w, r)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "private, no-store")
-	if err := h.tmpl.ExecuteTemplate(w, "public_share.html", publicSharePage(view)); err != nil {
-		h.log.Error("public share: render", "err", err)
-	}
+	writeJSON(w, http.StatusOK, publicShareResponse{
+		Filename:      view.Item.Filename,
+		FilesizeBytes: view.Item.Filesize,
+		ItemType:      view.Item.Type,
+		MIME:          view.DisplayMIME,
+		SourceURL:     view.SourceURL,
+		PosterURL:     view.PosterURL,
+		DownloadURL:   view.DownloadURL,
+		ExpiresAt:     view.ExpiresAt,
+		Processing:    view.Item.Metadata.Processing,
+	})
 }
 
 // PublicShareFile handles GET /share/{token}/file.
@@ -200,23 +208,6 @@ func (h *Handler) writePublicLinkUseCaseError(w http.ResponseWriter, err error) 
 		h.log.Error("public link: usecase", "err", err)
 		writeJSONError(w, http.StatusInternalServerError, "server_error", "public link operation failed")
 	}
-}
-
-func publicSharePage(view usecase.PublicShareView) publicSharePageData {
-	data := publicSharePageData{
-		Filename:    view.Item.Filename,
-		Filesize:    view.Item.Filesize,
-		ItemType:    view.Item.Type,
-		MIME:        view.DisplayMIME,
-		SourceURL:   view.SourceURL,
-		PosterURL:   view.PosterURL,
-		DownloadURL: view.DownloadURL,
-		Processing:  view.Item.Metadata.Processing,
-	}
-	if view.ExpiresAt != nil {
-		data.ExpiresAt = view.ExpiresAt.UTC().Format("Jan 2, 2006 3:04 PM UTC")
-	}
-	return data
 }
 
 func setPublicShareFileHeaders(w http.ResponseWriter, file usecase.PublicSharedFile) {

@@ -3,7 +3,7 @@ package middleware
 import "net/http"
 
 const contentSecurityPolicy = "default-src 'self'; " +
-	"script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; " +
+	"script-src 'self'; " +
 	"style-src 'self' 'unsafe-inline'; " +
 	"img-src 'self' data: blob:; " +
 	"media-src 'self' blob:; " +
