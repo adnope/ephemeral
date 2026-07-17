@@ -1,13 +1,24 @@
 <script setup lang="ts">
-import { LogOut, Menu, MessageSquareText, Search, X } from "@lucide/vue";
-import { ref } from "vue";
+import {
+  LogOut,
+  Menu,
+  MessageSquareText,
+  Moon,
+  Search,
+  Sun,
+  X,
+} from "@lucide/vue";
+import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { api } from "../api";
+import { useTheme } from "../state/theme";
 
-defineProps<{ selectionActive?: boolean }>();
-const emit = defineEmits<{ toggleSelection: [] }>();
 const router = useRouter();
 const mobileOpen = ref(false);
+const { isLight, toggleTheme } = useTheme();
+const themeLabel = computed(() =>
+  isLight.value ? "Switch to dark mode" : "Switch to light mode",
+);
 
 async function logout() {
   await api.logout();
@@ -48,17 +59,21 @@ async function logout() {
           >
             <Search :size="17" /> History
           </RouterLink>
-          <button
-            class="nav-link"
-            :class="{ 'router-link-active': selectionActive }"
-            type="button"
-            @click="emit('toggleSelection')"
-          >
-            Select
-          </button>
         </nav>
 
         <div class="header-spacer" />
+        <button
+          class="button button-outline theme-toggle-button"
+          type="button"
+          :aria-label="themeLabel"
+          :aria-pressed="isLight"
+          :title="themeLabel"
+          @click="toggleTheme"
+        >
+          <Moon v-if="isLight" :size="16" />
+          <Sun v-else :size="16" />
+          <span>{{ isLight ? "Dark mode" : "Light mode" }}</span>
+        </button>
         <button
           class="button button-outline logout-button"
           type="button"

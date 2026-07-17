@@ -82,6 +82,15 @@ function clearFilters() {
   applyFilters();
 }
 
+function toggleSelectionMode() {
+  selectionActive.value = !selectionActive.value;
+  selectedIDs.value = new Set();
+}
+
+function selectAllItems() {
+  selectedIDs.value = new Set(feed.items.value.map((item) => item.id));
+}
+
 function toggleItem(item: Item) {
   const next = new Set(selectedIDs.value);
   if (next.has(item.id)) next.delete(item.id);
@@ -112,13 +121,7 @@ watch(feed.nextCursor, () => {
 </script>
 
 <template>
-  <AppShell
-    :selection-active="selectionActive"
-    @toggle-selection="
-      selectionActive = !selectionActive;
-      selectedIDs = new Set();
-    "
-  >
+  <AppShell>
     <section
       ref="historyPage"
       class="history-page"
@@ -182,22 +185,32 @@ watch(feed.nextCursor, () => {
           >
         </div>
       </form>
-      <nav class="filter-pills" aria-label="Item type filters">
+      <div class="filter-pills-row">
+        <nav class="filter-pills" aria-label="Item type filters">
+          <button
+            v-for="option in [
+              { value: '', label: 'All' },
+              { value: 'image', label: 'Images' },
+              { value: 'video', label: 'Videos' },
+              { value: 'file', label: 'Files' },
+            ]"
+            :key="option.value"
+            type="button"
+            :class="{ active: filters.type === option.value }"
+            @click="setType(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </nav>
         <button
-          v-for="option in [
-            { value: '', label: 'All' },
-            { value: 'image', label: 'Images' },
-            { value: 'video', label: 'Videos' },
-            { value: 'file', label: 'Files' },
-          ]"
-          :key="option.value"
+          class="button button-outline history-select-button"
           type="button"
-          :class="{ active: filters.type === option.value }"
-          @click="setType(option.value)"
+          :aria-pressed="selectionActive"
+          @click="toggleSelectionMode"
         >
-          {{ option.label }}
+          {{ selectionActive ? "Cancel selection" : "Select" }}
         </button>
-      </nav>
+      </div>
 
       <div v-if="feed.loading.value" class="state-panel">
         <LoaderCircle class="spin" />Loading history...
@@ -226,12 +239,12 @@ watch(feed.nextCursor, () => {
         <LoaderCircle v-if="feed.loadingMore.value" class="spin" />
       </div>
       <SelectionToolbar
+        v-if="selectionActive"
         :items="selectedItems"
+        :all-items="feed.items.value"
         @clear="selectedIDs = new Set()"
-        @close="
-          selectionActive = false;
-          selectedIDs = new Set();
-        "
+        @close="toggleSelectionMode"
+        @select-all="selectAllItems"
       />
     </section>
   </AppShell>
