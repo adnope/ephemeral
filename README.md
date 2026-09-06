@@ -43,6 +43,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 - Reactive real-time updates over server-sent events
 - Mobile-friendly JSON API
 - SQLite data persistence
+- Change password from the web UI with old-password verification
 - Docker deployment
 - Hot-reload development
 

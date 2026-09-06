@@ -333,6 +333,41 @@ Content-Type: application/json
 
 Also sets `session_token`.
 
+### `POST /api/change-password`
+
+Changes the authenticated user's password after verifying their old password.
+Requires a valid `session_token` cookie.
+Existing sessions remain signed in.
+
+**JSON request**
+
+```http
+Content-Type: application/json
+Accept: application/json
+```
+
+```json
+{
+  "oldPassword": "current secret",
+  "newPassword": "new secret"
+}
+```
+
+Both passwords are required.
+The new password must be at most 72 UTF-8 bytes, the bcrypt limit.
+The web UI also requires a matching confirmation before submitting.
+
+**Response**
+
+- `204 No Content`: password changed.
+- `400 validation_error`: missing passwords, new password exceeds the limit, or invalid JSON.
+- `401 unauthenticated`: missing or expired session.
+- `403 invalid_password`: old password is incorrect, including if another request changed it concurrently.
+- `413 payload_too_large`: JSON body exceeds 64 KiB.
+- `500 server_error`: password could not be changed.
+
+Errors use the standard JSON `code` and `message` fields.
+
 ### `POST /api/logout`
 
 Invalidates the current session and clears the session cookie.

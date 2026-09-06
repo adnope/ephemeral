@@ -160,6 +160,7 @@ func main() {
 	r.Get("/api/file-preview/{id}", h.PreviewFile)
 	r.Post("/api/login", h.Login)
 	r.Post("/api/logout", h.Logout)
+	r.Post("/api/change-password", h.ChangePassword)
 	r.Get("/api/share/{token}", h.PublicShareAPI)
 	r.Get("/share/{token}/file", h.PublicShareFile)
 	r.Get("/share/{token}/download", h.PublicShareDownload)

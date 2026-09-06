@@ -126,6 +126,34 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*d
 	return &user, nil
 }
 
+func (r *userRepository) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+	const query = `SELECT id, username, password_hash, created_at FROM users WHERE id = ?`
+	var user domain.User
+	err := retryInterruptedRead(ctx, func() error {
+		return r.db.QueryRowContext(ctx, query, id).Scan(
+			&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt,
+		)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("sqlite user get by id: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *userRepository) UpdatePassword(ctx context.Context, id int64, oldHash, newHash string) (bool, error) {
+	// Match the verified hash so concurrent password changes cannot overwrite each other.
+	const query = `UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?`
+	result, err := r.db.ExecContext(ctx, query, newHash, id, oldHash)
+	if err != nil {
+		return false, fmt.Errorf("sqlite user update password: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("sqlite user update password rows: %w", err)
+	}
+	return affected == 1, nil
+}
+
 func (r *userRepository) Count(ctx context.Context) (int, error) {
 	const query = `SELECT COUNT(*) FROM users`
 

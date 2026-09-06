@@ -1780,6 +1780,14 @@ select {
 }
 
 @media (max-width: 900px) {
+  .change-password-button {
+    width: 38px;
+    flex-shrink: 0;
+    padding: 0;
+  }
+  .change-password-button span {
+    display: none;
+  }
   .history-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -1797,6 +1805,7 @@ select {
   }
   .header-inner {
     width: min(100% - 20px, 1180px);
+    gap: 8px;
   }
   .brand-mark {
     width: 38px;

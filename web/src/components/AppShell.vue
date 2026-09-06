@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  KeyRound,
   LogOut,
   Menu,
   MessageSquareText,
@@ -12,9 +13,11 @@ import { computed, ref } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { api } from "../api";
 import { useTheme } from "../state/theme";
+import ChangePasswordDialog from "./dialogs/ChangePasswordDialog.vue";
 
 const router = useRouter();
 const mobileOpen = ref(false);
+const changingPassword = ref(false);
 const { isLight, toggleTheme } = useTheme();
 const themeLabel = computed(() =>
   isLight.value ? "Switch to dark mode" : "Switch to light mode",
@@ -63,6 +66,15 @@ async function logout() {
 
         <div class="header-spacer" />
         <button
+          class="button button-outline change-password-button"
+          type="button"
+          aria-label="Change Password"
+          title="Change Password"
+          @click="changingPassword = true"
+        >
+          <KeyRound :size="16" /><span>Change Password</span>
+        </button>
+        <button
           class="button button-outline theme-toggle-button"
           type="button"
           :aria-label="themeLabel"
@@ -86,5 +98,9 @@ async function logout() {
     <main class="app-main">
       <slot />
     </main>
+    <ChangePasswordDialog
+      v-if="changingPassword"
+      @close="changingPassword = false"
+    />
   </div>
 </template>
