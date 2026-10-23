@@ -4,6 +4,9 @@ import { RouterView, useRoute } from "vue-router";
 import UploadQueue from "./components/uploads/UploadQueue.vue";
 import { ui } from "./state/ui";
 
+const EditMessageDialog = defineAsyncComponent(
+  () => import("./components/dialogs/EditMessageDialog.vue"),
+);
 const DeleteDialog = defineAsyncComponent(
   () => import("./components/dialogs/DeleteDialog.vue"),
 );
@@ -25,6 +28,12 @@ const showApplicationOverlays = computed(() => !route.meta.public);
   <RouterView />
   <template v-if="showApplicationOverlays">
     <UploadQueue />
+    <EditMessageDialog
+      v-if="ui.editItem"
+      :key="ui.editItem.id"
+      :item="ui.editItem"
+      @close="ui.editItem = null"
+    />
     <DeleteDialog v-if="ui.deleteItems.length" />
     <ShareDialog v-if="ui.shareItem" />
     <PreviewDialog v-if="ui.previewItem" />

@@ -12,6 +12,7 @@ const item: Item = {
   contentUrl: "",
   downloadUrl: "",
   createdAtEpochMillis: 0,
+  editedAtEpochMillis: null,
   publicLinkActive: false,
   metadata: {
     width: 0,

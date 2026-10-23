@@ -31,7 +31,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 
 ## Features:
 
-- Chat-style feed
+- Chat-style feed with text editing and last edited timestamps
 - Image and video media viewer with thumbnail preview and browser-friendly video playback copies
 - Public file links with optional expiry
 - Generic file view/download
@@ -41,7 +41,7 @@ Ephemeral is a lightweight self-hosted web app for quickly sharing text messages
 - History search: type and date filters, filename, text file body search
 - Pagination and infinite scrolling
 - Reactive real-time updates over server-sent events
-- Mobile-friendly JSON API
+- Mobile-friendly JSON API with text editing and last edit timestamps
 - SQLite data persistence
 - Change password from the web UI with old-password verification
 - Docker deployment

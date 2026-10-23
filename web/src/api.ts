@@ -92,6 +92,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+  editMessage: (id: number, text: string) =>
+    request<Item>(`/api/items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ text }),
+    }),
   deleteItem: (id: number) =>
     request<void>(`/api/items/${id}`, { method: "DELETE" }),
   preview: (id: number) => request<FilePreview>(`/api/file-preview/${id}`),

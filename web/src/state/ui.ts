@@ -4,6 +4,7 @@ import type { Item } from "../types";
 export const ui = reactive({
   deleteItems: [] as Item[],
   shareItem: null as Item | null,
+  editItem: null as Item | null,
   previewItem: null as Item | null,
   mediaItem: null as Item | null,
   mediaItems: [] as Item[],

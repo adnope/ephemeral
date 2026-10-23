@@ -42,6 +42,7 @@ type itemResponse struct {
 	ContentURL           string               `json:"contentUrl"`
 	DownloadURL          string               `json:"downloadUrl"`
 	CreatedAtEpochMillis int64                `json:"createdAtEpochMillis"`
+	EditedAtEpochMillis  *int64               `json:"editedAtEpochMillis"`
 	PublicLinkActive     bool                 `json:"publicLinkActive"`
 	Metadata             itemMetadataResponse `json:"metadata"`
 }
@@ -86,6 +87,9 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, target any) error {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			return errJSONBodyTooLarge
+		}
+		if err == nil {
+			return errors.New("JSON body must contain exactly one value")
 		}
 		return err
 	}
@@ -153,6 +157,12 @@ func itemToResponseWithPublicLink(item *domain.Item, publicLinkActive bool) item
 		hlsURL = apiFileURL(item.Metadata.HLS)
 	}
 
+	var editedAt *int64
+	if item.EditedAt != nil {
+		value := unixMillis(*item.EditedAt)
+		editedAt = &value
+	}
+
 	return itemResponse{
 		ID:                   item.ID,
 		Type:                 item.Type,
@@ -162,6 +172,7 @@ func itemToResponseWithPublicLink(item *domain.Item, publicLinkActive bool) item
 		ContentURL:           contentURL,
 		DownloadURL:          downloadURL,
 		CreatedAtEpochMillis: unixMillis(item.CreatedAt),
+		EditedAtEpochMillis:  editedAt,
 		PublicLinkActive:     publicLinkActive,
 		Metadata: itemMetadataResponse{
 			Width:        item.Metadata.Width,

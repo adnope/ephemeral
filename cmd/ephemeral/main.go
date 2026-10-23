@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sort"
-	"strings"
 	"syscall"
 	"time"
 
@@ -42,18 +40,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	migrationSQL, err := loadMigrations(migrations.FS)
-	if err != nil {
-		logger.Error("migration read failed", "err", err)
-		os.Exit(1)
-	}
-
-	db, err := sqlite.OpenDB(cfg.DBPath(), string(migrationSQL))
+	db, err := sqlite.OpenDB(cfg.DBPath(), "")
 	if err != nil {
 		logger.Error("database init failed", "err", err)
 		os.Exit(1)
 	}
 	defer func() { _ = db.Close() }()
+	if err := migrations.Apply(context.Background(), db); err != nil {
+		logger.Error("migration failed", "err", err)
+		os.Exit(1)
+	}
 
 	itemRepo := sqlite.NewItemRepository(db)
 	publicLinkRepo := sqlite.NewPublicLinkRepository(db)
@@ -152,6 +148,7 @@ func main() {
 	r.Get("/api/history", h.HistoryAPI)
 	r.Post("/api/upload", h.Upload)
 	r.Post("/api/message", h.Message)
+	r.Patch("/api/items/{id}", h.EditMessage)
 	r.Delete("/api/items/{id}", h.DeleteItem)
 	r.Get("/api/items/{id}/public-link", h.PublicLinkStatus)
 	r.Post("/api/items/{id}/public-link", h.CreatePublicLink)
@@ -215,39 +212,4 @@ func main() {
 	mediaPool.Shutdown(ctx)
 
 	logger.Info("shutdown complete")
-}
-
-func loadMigrations(fsys fs.FS) (string, error) {
-	entries, err := fs.ReadDir(fsys, ".")
-	if err != nil {
-		return "", fmt.Errorf("read embedded migrations: %w", err)
-	}
-
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(entry.Name(), ".sql") {
-			names = append(names, entry.Name())
-		}
-	}
-
-	sort.Strings(names)
-
-	var b strings.Builder
-	for _, name := range names {
-		sqlBytes, err := fs.ReadFile(fsys, name)
-		if err != nil {
-			return "", fmt.Errorf("read embedded migration %s: %w", name, err)
-		}
-
-		b.WriteString("\n-- migration: ")
-		b.WriteString(name)
-		b.WriteString("\n")
-		b.Write(sqlBytes)
-		b.WriteString("\n")
-	}
-
-	return b.String(), nil
 }

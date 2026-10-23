@@ -22,6 +22,7 @@ type Item struct {
 	Filesize  int64
 	Metadata  Metadata
 	CreatedAt time.Time
+	EditedAt  *time.Time
 }
 
 type Metadata struct {
@@ -49,6 +50,7 @@ type ItemRepository interface {
 	Search(ctx context.Context, query string, limit int) ([]*Item, error)
 	MediaHistory(ctx context.Context, types []string, cursor int64, limit int) ([]*Item, error)
 	UpdateMetadata(ctx context.Context, id int64, meta Metadata) error
+	UpdateText(ctx context.Context, id int64, text string, editedAt time.Time) (*Item, bool, error)
 }
 
 type PublicLink struct {
@@ -58,6 +60,11 @@ type PublicLink struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+var (
+	ErrItemNotFound = errors.New("item not found")
+	ErrItemNotText  = errors.New("item is not text")
+)
 
 var ErrPublicLinkNotFound = errors.New("public link not found")
 

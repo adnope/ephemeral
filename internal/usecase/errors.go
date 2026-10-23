@@ -8,6 +8,7 @@ var (
 	ErrEmptyQuery         = errors.New("empty query")
 	ErrNotFound           = errors.New("not found")
 	ErrForbidden          = errors.New("forbidden")
+	ErrUnsupportedEdit    = errors.New("only text items can be edited")
 	ErrUnsupportedPreview = errors.New("unsupported preview")
 	ErrUnsupportedShare   = errors.New("unsupported public share")
 	ErrPreviewTooLarge    = errors.New("preview too large")

@@ -1,6 +1,6 @@
 # Ephemeral API Documentation
 
-Ephemeral provides a minimal set of authenticated endpoints for sharing text, uploading files, creating public file links, browsing history, previewing files, deleting items, and receiving real-time updates.
+Ephemeral provides a minimal set of authenticated endpoints for sharing and editing text, uploading files, creating public file links, browsing history, previewing files, deleting items, and receiving real-time updates.
 
 ## Authentication
 
@@ -74,6 +74,8 @@ forbidden
 not_found
 payload_too_large
 unsupported_preview
+unsupported_edit
+unsupported_media_type
 unsupported_share
 server_error
 ```
@@ -90,6 +92,7 @@ Mobile item JSON shape:
   "contentUrl": "/api/files/...",
   "downloadUrl": "/api/files/...",
   "createdAtEpochMillis": 1710000000000,
+  "editedAtEpochMillis": null,
   "publicLinkActive": true,
   "metadata": {
     "width": 640,
@@ -106,6 +109,8 @@ Mobile item JSON shape:
 ```
 
 For text items, `text` contains the message body and file URLs are empty. For uploaded items, `text` is empty and `contentUrl` / `downloadUrl` point to the original upload.
+`editedAtEpochMillis` is `null` until a text item has been changed at least once, then contains the latest successful edit time as UTC Unix milliseconds. This field is included in creation, single-item, feed, and history responses. Saving identical text does not change it; media processing and public-link changes do not set it. Clients can show an edited indicator or timestamp whenever it is non-null. `createdAtEpochMillis` and feed ordering remain unchanged.
+
 `publicLinkActive` is `true` only when the uploaded item has a public link that has not expired.
 
 ### Media Playback Contract
@@ -421,6 +426,57 @@ Emits SSE event:
 ```text
 item:new
 ```
+
+---
+
+### `PATCH /api/items/{id}`
+
+Edits the content of an existing text item. Requires a valid `session_token` cookie.
+Uploaded files, images, and videos cannot be edited through this endpoint.
+
+**Request**
+
+```http
+Content-Type: application/json
+Accept: application/json
+```
+
+```json
+{
+  "text": "Updated message body"
+}
+```
+
+Leading and trailing whitespace is trimmed, matching message creation. Text must
+not be empty after trimming. Only `text` is accepted; edit timestamps are assigned
+by the server. JSON bodies are limited to 64 KiB.
+
+**Response**
+
+`200 OK` returns the full mobile item JSON shape with the updated `text` and
+`editedAtEpochMillis`. A successful content change updates content and edit time
+atomically and emits `item:updated` with the item ID. Clients can fetch
+`GET /api/items/{id}` to refresh the item.
+
+Saving identical text returns the current item without changing its timestamp or
+emitting an event. Every later content change replaces the edit timestamp;
+changing back to an earlier value still counts as an edit. No revision history
+is kept. Concurrent edits use the last committed write.
+
+**Errors**
+
+| Status | Code | Meaning |
+| -----: | ---- | ------- |
+| `400` | `validation_error` | Invalid ID, missing/empty text, invalid JSON, or unknown fields |
+| `401` | `unauthenticated` | Missing or invalid session |
+| `404` | `not_found` | Item does not exist |
+| `413` | `payload_too_large` | JSON body exceeds 64 KiB |
+| `415` | `unsupported_media_type` | Content-Type is not application/json |
+| `415` | `unsupported_edit` | Item is not a text item |
+| `500` | `server_error` | Edit could not be saved |
+
+Errors use the standard JSON `code` and `message` fields. Failed edits do not
+change the stored text or edit time and do not emit an update event.
 
 ---
 
@@ -879,7 +935,7 @@ events.onerror = (error) => {
 | Event          | Description                                                                          |
 | -------------- | ------------------------------------------------------------------------------------ |
 | `item:new`     | New text message or uploaded file was created                                        |
-| `item:updated` | Media processing completed or the item's active public-link state changed            |
+| `item:updated` | Text content changed, media processing completed, or the item's active public-link state changed            |
 | `item:deleted` | Item was permanently deleted                                                         |
 | `stream:reset` | Retained replay is unavailable and the client must reconcile                         |
 

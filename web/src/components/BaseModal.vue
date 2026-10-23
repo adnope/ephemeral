@@ -10,8 +10,15 @@ const props = withDefaults(
     wide?: boolean;
     media?: boolean;
     closeOnBackdrop?: boolean;
+    panelClass?: string;
   }>(),
-  { description: "", wide: false, media: false, closeOnBackdrop: true },
+  {
+    description: "",
+    wide: false,
+    media: false,
+    closeOnBackdrop: true,
+    panelClass: "",
+  },
 );
 const emit = defineEmits<{ close: [] }>();
 const panel = ref<HTMLElement | null>(null);
@@ -76,7 +83,7 @@ onBeforeUnmount(() => {
         <section
           ref="panel"
           class="modal-panel"
-          :class="{ 'is-wide': wide, 'is-media': media }"
+          :class="[{ 'is-wide': wide, 'is-media': media }, panelClass]"
           role="dialog"
           aria-modal="true"
           :aria-label="title"
