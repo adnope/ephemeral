@@ -45,6 +45,18 @@ const poster = computed(
     props.item.metadata.thumbnailUrl ||
     (props.item.type === "image" ? props.item.contentUrl : ""),
 );
+const canPreview = computed(() => {
+  const mime = props.item.metadata.mime.trim().toLowerCase().split(";")[0] || "";
+  return (
+    mime.startsWith("text/") ||
+    /^(application\/(json|xml|javascript|x-javascript|x-sh|sql)|image\/svg\+xml)$/.test(
+      mime,
+    ) ||
+    /\.(txt|log|md|markdown|mk|mak|make|go|py|js|mjs|cjs|ts|tsx|jsx|json|yaml|yml|toml|xml|html|css|scss|csv|sql|sh|bash|zsh|rs|c|h|cpp|hpp|java|kt|rb|php|lua|dockerfile)$/i.test(
+      props.item.filename,
+    )
+  );
+});
 
 function activate() {
   if (props.selectionActive) emit("toggleSelection", props.item);
@@ -249,6 +261,7 @@ async function copyImage() {
       </div>
       <div class="file-actions">
         <button
+          v-if="canPreview"
           class="icon-button"
           type="button"
           aria-label="Preview"

@@ -1,5 +1,5 @@
 .PHONY: build build-web dev run test format lint fix clean clean-data docker docker-run \
-	format-go lint-go format-web lint-web fix-web install-web
+	format-go lint-go format-web lint-web fix-web install-web deploy
 
 APP_NAME := ephemeral
 WEB_DIR := web
@@ -59,3 +59,6 @@ docker-build:
 docker-up: docker-build
 	docker compose down
 	docker compose up -d
+
+deploy:
+	bash deploy.sh

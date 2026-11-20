@@ -802,6 +802,10 @@ select {
   background: transparent;
 }
 
+.layout-chat.type-image .media-button {
+  margin-left: auto;
+}
+
 .layout-chat .media-button img {
   width: auto;
   max-width: 100%;
