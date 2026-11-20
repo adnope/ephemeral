@@ -172,6 +172,32 @@ func (uc *ItemUseCase) CreateMessage(ctx context.Context, text string) (*domain.
 	return item, nil
 }
 
+// EditMessage changes text content; identical content leaves its edit time unchanged.
+func (uc *ItemUseCase) EditMessage(ctx context.Context, id int64, text string) (*domain.Item, error) {
+	if id <= 0 {
+		return nil, fmt.Errorf("%w: item id must be positive", ErrInvalidInput)
+	}
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil, ErrEmptyMessage
+	}
+	item, changed, err := uc.items.UpdateText(ctx, id, text, uc.now().UTC())
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrItemNotFound):
+			return nil, ErrNotFound
+		case errors.Is(err, domain.ErrItemNotText):
+			return nil, ErrUnsupportedEdit
+		default:
+			return nil, fmt.Errorf("edit message item: %w", err)
+		}
+	}
+	if changed {
+		uc.broadcast(domain.Event{Type: "item:updated", ID: id})
+	}
+	return item, nil
+}
+
 func (uc *ItemUseCase) UploadFile(ctx context.Context, filename string, reader io.Reader) (*domain.Item, error) {
 	if reader == nil {
 		return nil, fmt.Errorf("%w: upload reader is nil", ErrInvalidInput)

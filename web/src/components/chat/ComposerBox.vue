@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { File, Paperclip, Send, X } from "@lucide/vue";
+import { File, ListChecks, Paperclip, Send, X } from "@lucide/vue";
 import { computed, nextTick, onBeforeUnmount, ref } from "vue";
 import { api } from "../../api";
 import { useUploads } from "../../state/uploads";
@@ -11,7 +11,11 @@ interface Attachment {
   preview: string;
 }
 
-const emit = defineEmits<{ created: [item: Item]; error: [message: string] }>();
+const emit = defineEmits<{
+  created: [item: Item];
+  error: [message: string];
+  toggleSelection: [];
+}>();
 const uploads = useUploads();
 const message = ref("");
 const attachments = ref<Attachment[]>([]);
@@ -139,6 +143,17 @@ onBeforeUnmount(() => {
         aria-label="Message"
         @keydown="keydown"
       />
+      <button
+        class="button button-outline composer-select"
+        type="button"
+        aria-label="Select items"
+        title="Select items"
+        @click="emit('toggleSelection')"
+      >
+        <ListChecks :size="18" /><span class="composer-select-label"
+          >Select</span
+        >
+      </button>
       <button
         class="button button-primary composer-send"
         type="button"

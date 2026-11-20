@@ -21,6 +21,7 @@ export interface Item {
   contentUrl: string;
   downloadUrl: string;
   createdAtEpochMillis: number;
+  editedAtEpochMillis: number | null;
   publicLinkActive: boolean;
   metadata: ItemMetadata;
 }

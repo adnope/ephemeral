@@ -393,6 +393,10 @@ func (r *fakePublicLinkItemRepo) UpdateMetadata(context.Context, int64, domain.M
 	return errors.New("not implemented")
 }
 
+func (r *fakePublicLinkItemRepo) UpdateText(context.Context, int64, string, time.Time) (*domain.Item, bool, error) {
+	return nil, false, errors.New("not implemented")
+}
+
 type fakePublicLinkRepo struct {
 	byToken map[string]*domain.PublicLink
 	byItem  map[int64]string

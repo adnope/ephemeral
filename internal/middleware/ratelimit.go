@@ -106,7 +106,7 @@ func clientRateLimitKey(r *http.Request) string {
 
 func rateLimitClass(r *http.Request) string {
 	switch r.URL.Path {
-	case "/api/auth/state", "/api/login", "/api/logout", "/login":
+	case "/api/auth/state", "/api/login", "/api/logout", "/api/change-password", "/login":
 		return "auth"
 	default:
 		return "default"

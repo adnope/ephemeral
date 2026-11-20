@@ -66,6 +66,11 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
   logout: () => request<void>("/api/logout", { method: "POST" }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<void>("/api/change-password", {
+      method: "POST",
+      body: JSON.stringify({ oldPassword, newPassword }),
+    }),
   config: () => request<RuntimeConfig>("/api/config"),
   items: (cursor = 0) =>
     request<ItemPage>(`/api/items${cursor ? `?cursor=${cursor}` : ""}`),
@@ -85,6 +90,11 @@ export const api = {
   message: (text: string) =>
     request<Item>("/api/message", {
       method: "POST",
+      body: JSON.stringify({ text }),
+    }),
+  editMessage: (id: number, text: string) =>
+    request<Item>(`/api/items/${id}`, {
+      method: "PATCH",
       body: JSON.stringify({ text }),
     }),
   deleteItem: (id: number) =>

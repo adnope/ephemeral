@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { Download, Trash2, X } from "@lucide/vue";
+import { Download, Eraser, ListChecks, Trash2, X } from "@lucide/vue";
 import type { Item } from "../types";
 import { requestDelete } from "../state/ui";
 
-const props = defineProps<{ items: Item[] }>();
-const emit = defineEmits<{ clear: []; close: [] }>();
+const props = defineProps<{
+  items: Item[];
+  allItems: Item[];
+  variant?: "floating" | "composer";
+}>();
+const emit = defineEmits<{ clear: []; close: []; selectAll: [] }>();
 
 function download() {
   if (!props.items.length) return;
@@ -24,26 +28,64 @@ function remove() {
 </script>
 
 <template>
-  <Transition name="selection-toolbar">
-    <aside
-      v-if="items.length"
-      class="selection-toolbar"
-      aria-label="Selection actions"
+  <aside
+    class="selection-toolbar"
+    :class="{ 'selection-toolbar-composer': variant === 'composer' }"
+    aria-label="Selection actions"
+  >
+    <strong>{{ items.length }} selected</strong>
+    <button
+      class="button button-outline selection-action-button"
+      type="button"
+      :disabled="!allItems.length || items.length === allItems.length"
+      aria-label="Select all"
+      title="Select all"
+      @click="emit('selectAll')"
     >
-      <strong>{{ items.length }} selected</strong>
-      <button
-        class="button button-outline"
-        type="button"
-        @click="emit('clear')"
+      <ListChecks :size="16" /><span class="selection-action-label"
+        >Select all</span
       >
-        <X :size="16" />Clear
-      </button>
-      <button class="button button-outline" type="button" @click="download">
-        <Download :size="16" />Download
-      </button>
-      <button class="button button-danger" type="button" @click="remove">
-        <Trash2 :size="16" />Delete
-      </button>
-    </aside>
-  </Transition>
+    </button>
+    <button
+      class="button button-outline selection-action-button"
+      type="button"
+      :disabled="!items.length"
+      aria-label="Clear selection"
+      title="Clear selection"
+      @click="emit('clear')"
+    >
+      <Eraser :size="16" /><span class="selection-action-label">Clear</span>
+    </button>
+    <button
+      class="button button-outline selection-action-button"
+      type="button"
+      :disabled="!items.length"
+      aria-label="Download selected items"
+      title="Download selected items"
+      @click="download"
+    >
+      <Download :size="16" /><span class="selection-action-label"
+        >Download</span
+      >
+    </button>
+    <button
+      class="button button-danger selection-action-button"
+      type="button"
+      :disabled="!items.length"
+      aria-label="Delete selected items"
+      title="Delete selected items"
+      @click="remove"
+    >
+      <Trash2 :size="16" /><span class="selection-action-label">Delete</span>
+    </button>
+    <button
+      class="icon-button selection-close-button"
+      type="button"
+      aria-label="Exit selection mode"
+      title="Exit selection mode"
+      @click="emit('close')"
+    >
+      <X :size="18" />
+    </button>
+  </aside>
 </template>

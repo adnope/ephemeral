@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/adnope/ephemeral/internal/middleware"
 	"github.com/adnope/ephemeral/internal/usecase"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const sessionCookieName = "session_token"
@@ -104,6 +106,42 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// ChangePassword handles POST /api/change-password.
+func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	session := middleware.GetSession(r.Context())
+	if session == nil {
+		writeJSONError(w, http.StatusUnauthorized, "unauthenticated", "authentication required")
+		return
+	}
+	var req struct {
+		OldPassword string `json:"oldPassword"`
+		NewPassword string `json:"newPassword"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		if errors.Is(err, errJSONBodyTooLarge) {
+			writeJSONError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "JSON body too large")
+			return
+		}
+		writeJSONError(w, http.StatusBadRequest, "validation_error", "invalid JSON body")
+		return
+	}
+	if err := h.auth.ChangePassword(r.Context(), session.UserID, req.OldPassword, req.NewPassword); err != nil {
+		switch {
+		case errors.Is(err, usecase.ErrMissingCredentials):
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "Old and new passwords are required")
+		case errors.Is(err, bcrypt.ErrPasswordTooLong):
+			writeJSONError(w, http.StatusBadRequest, "validation_error", "New password must be 72 bytes or fewer")
+		case errors.Is(err, usecase.ErrInvalidCredentials):
+			writeJSONError(w, http.StatusForbidden, "invalid_password", "Old password is incorrect")
+		default:
+			h.log.Error("change password: usecase", "err", err)
+			writeJSONError(w, http.StatusInternalServerError, "server_error", "Could not change password")
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Logout handles POST /api/logout.

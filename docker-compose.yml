@@ -1,4 +1,15 @@
 services:
+  data-init:
+    image: alpine:3.23
+    user: "0:0"
+    volumes:
+      - ./data:/data
+    command:
+      - sh
+      - -c
+      - chown -R 10001:10001 /data && chmod -R u+rwX /data
+    restart: "no"
+
   ephemeral:
     image: adnope/ephemeral:indev
     mem_limit: 768m
@@ -6,7 +17,7 @@ services:
     ports:
       - "8181:8080"
     volumes:
-      - ephemeral-data:/app/data
+      - ./data:/app/data
     environment:
       - GOMEMLIMIT=128MiB
       - GOGC=50
@@ -27,6 +38,3 @@ services:
       - HLS_MIN_DURATION=${HLS_MIN_DURATION:-5m}
       - UPLOAD_CONCURRENCY=${UPLOAD_CONCURRENCY:-1}
     restart: unless-stopped
-
-volumes:
-  ephemeral-data:

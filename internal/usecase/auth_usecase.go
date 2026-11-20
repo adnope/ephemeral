@@ -91,6 +91,34 @@ func (uc *AuthUseCase) Login(ctx context.Context, username string, password stri
 	return LoginResult{Token: token, TTL: uc.sessionTTL}, nil
 }
 
+func (uc *AuthUseCase) ChangePassword(ctx context.Context, userID int64, oldPassword, newPassword string) error {
+	if oldPassword == "" || newPassword == "" {
+		return ErrMissingCredentials
+	}
+	if len(newPassword) > 72 {
+		return bcrypt.ErrPasswordTooLong
+	}
+	user, err := uc.users.GetByID(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("get user for password change: %w", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(oldPassword)); err != nil {
+		return ErrInvalidCredentials
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), 12)
+	if err != nil {
+		return fmt.Errorf("hash new password: %w", err)
+	}
+	updated, err := uc.users.UpdatePassword(ctx, userID, user.PasswordHash, string(hash))
+	if err != nil {
+		return fmt.Errorf("change password: %w", err)
+	}
+	if !updated {
+		return ErrInvalidCredentials
+	}
+	return nil
+}
+
 func (uc *AuthUseCase) Logout(ctx context.Context, token string) error {
 	if token == "" {
 		return nil

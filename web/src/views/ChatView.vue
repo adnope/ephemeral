@@ -31,9 +31,12 @@ const selectedItems = computed(() =>
 );
 const chatItems = computed(() => [...feed.items.value].reverse());
 let loadObserver: IntersectionObserver | null = null;
+let contentObserver: MutationObserver | null = null;
+let contentFrame = 0;
 let loadTriggerVisible = false;
 let positionedAtLatest = false;
 let loadingOlder = false;
+let stickToBottom = true;
 const marquee = useMarqueeSelection(stream, selectionActive, selectedIDs);
 
 onMounted(() => {
@@ -42,17 +45,31 @@ onMounted(() => {
     if (loadTriggerVisible) void loadOlder();
   });
   if (loadTrigger.value) loadObserver.observe(loadTrigger.value);
+
+  if (stream.value) {
+    stream.value.addEventListener("load", onStreamContentLoad, true);
+    contentObserver = new MutationObserver(scheduleLatestScroll);
+    contentObserver.observe(stream.value, { childList: true, subtree: true });
+  }
 });
 
-onBeforeUnmount(() => loadObserver?.disconnect());
+onBeforeUnmount(() => {
+  loadObserver?.disconnect();
+  contentObserver?.disconnect();
+  window.cancelAnimationFrame(contentFrame);
+  stream.value?.removeEventListener("load", onStreamContentLoad, true);
+});
 
 watch(
   () => feed.items.value.map((item) => item.id).join(","),
   async () => {
     const shouldShowLatest =
-      !positionedAtLatest || (!loadingOlder && isNearBottom());
+      !positionedAtLatest || (!loadingOlder && stickToBottom && isNearBottom());
     await nextTick();
-    if (shouldShowLatest) scrollToLatest();
+    if (shouldShowLatest && !loadingOlder) {
+      scrollToLatest();
+      stickToBottom = true;
+    }
     positionedAtLatest = true;
   },
 );
@@ -76,6 +93,22 @@ function scrollToLatest() {
   if (stream.value) stream.value.scrollTop = stream.value.scrollHeight;
 }
 
+function scheduleLatestScroll() {
+  if (!stickToBottom || loadingOlder) return;
+  window.cancelAnimationFrame(contentFrame);
+  contentFrame = window.requestAnimationFrame(() => {
+    if (stickToBottom && !loadingOlder) scrollToLatest();
+  });
+}
+
+function onStreamContentLoad() {
+  scheduleLatestScroll();
+}
+
+function onStreamScroll() {
+  if (!loadingOlder) stickToBottom = isNearBottom();
+}
+
 async function loadOlder() {
   if (
     loadingOlder ||
@@ -86,20 +119,24 @@ async function loadOlder() {
   )
     return;
   loadingOlder = true;
+  const shouldKeepLatest = stickToBottom;
   const previousHeight = stream.value.scrollHeight;
   const previousTop = stream.value.scrollTop;
   await feed.loadMore();
   await nextTick();
   if (stream.value) {
-    stream.value.scrollTop =
-      previousTop + (stream.value.scrollHeight - previousHeight);
+    if (shouldKeepLatest) scrollToLatest();
+    else {
+      stream.value.scrollTop =
+        previousTop + (stream.value.scrollHeight - previousHeight);
+    }
   }
   loadingOlder = false;
 }
 
 function toggleSelectionMode() {
   selectionActive.value = !selectionActive.value;
-  if (!selectionActive.value) selectedIDs.value = new Set();
+  selectedIDs.value = new Set();
 }
 
 function toggleItem(item: Item) {
@@ -107,6 +144,10 @@ function toggleItem(item: Item) {
   if (next.has(item.id)) next.delete(item.id);
   else next.add(item.id);
   selectedIDs.value = next;
+}
+
+function selectAllItems() {
+  selectedIDs.value = new Set(chatItems.value.map((item) => item.id));
 }
 
 function showError(message: string) {
@@ -124,10 +165,7 @@ function onDrop(event: DragEvent) {
 </script>
 
 <template>
-  <AppShell
-    :selection-active="selectionActive"
-    @toggle-selection="toggleSelectionMode"
-  >
+  <AppShell>
     <section
       class="chat-page"
       :class="{ 'drag-active': dragActive }"
@@ -146,6 +184,7 @@ function onDrop(event: DragEvent) {
         id="chat-stream"
         ref="stream"
         class="chat-stream"
+        @scroll="onStreamScroll"
         @pointerdown="marquee.start"
       >
         <div v-if="feed.loading.value" class="state-panel">
@@ -174,11 +213,20 @@ function onDrop(event: DragEvent) {
           @toggle-selection="toggleItem"
         />
       </div>
-      <ComposerBox @created="feed.upsert" @error="showError" />
+      <ComposerBox
+        v-if="!selectionActive"
+        @created="feed.upsert"
+        @error="showError"
+        @toggle-selection="toggleSelectionMode"
+      />
       <SelectionToolbar
+        v-else
+        variant="composer"
         :items="selectedItems"
+        :all-items="chatItems"
         @clear="selectedIDs = new Set()"
         @close="toggleSelectionMode"
+        @select-all="selectAllItems"
       />
     </section>
   </AppShell>

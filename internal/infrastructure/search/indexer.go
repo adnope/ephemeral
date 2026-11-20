@@ -188,7 +188,7 @@ func (x *Indexer) SearchHistory(ctx context.Context, opt domain.HistorySearchOpt
 	}
 
 	query := `
-		SELECT i.id, i.type, i.content, i.filename, i.filesize, i.metadata, i.created_at
+		SELECT i.id, i.type, i.content, i.filename, i.filesize, i.metadata, i.created_at, i.edited_at
 		FROM items i
 		WHERE ` + strings.Join(where, " AND ") + `
 		ORDER BY i.id DESC
@@ -368,6 +368,7 @@ func scanItems(rows *sql.Rows) ([]*domain.Item, error) {
 		var filesize sql.NullInt64
 		var metadata metadataJSON
 		var createdAt string
+		var editedAt sql.NullString
 
 		if err := rows.Scan(
 			&item.ID,
@@ -377,6 +378,7 @@ func scanItems(rows *sql.Rows) ([]*domain.Item, error) {
 			&filesize,
 			&metadata,
 			&createdAt,
+			&editedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan history item: %w", err)
 		}
@@ -385,6 +387,10 @@ func scanItems(rows *sql.Rows) ([]*domain.Item, error) {
 		item.Filesize = filesize.Int64
 		item.Metadata = metadata.toDomain()
 		item.CreatedAt = parseSQLiteTime(createdAt)
+		if editedAt.Valid {
+			value := parseSQLiteTime(editedAt.String)
+			item.EditedAt = &value
+		}
 		items = append(items, &item)
 	}
 
